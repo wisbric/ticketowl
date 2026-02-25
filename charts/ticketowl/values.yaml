@@ -1,0 +1,109 @@
+# TicketOwl Helm Chart Values
+
+image:
+  repository: ghcr.io/wisbric/ticketowl
+  pullPolicy: IfNotPresent
+  tag: ""  # defaults to Chart.AppVersion
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# -- API server configuration
+api:
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  podLabels: {}
+
+# -- Worker configuration (single replica — no leader election in v1)
+worker:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# -- Application configuration (non-secret env vars)
+config:
+  logLevel: info
+  logFormat: json
+  port: "8082"
+  workerPollSeconds: "60"
+  nightowlApiUrl: ""
+  bookowlApiUrl: ""
+  otelEndpoint: ""
+
+# -- Secrets (create Secret resource or reference existing)
+secrets:
+  create: true
+  # -- Name of existing secret to use (if create is false)
+  existingSecret: ""
+  dbUrl: ""
+  redisUrl: ""
+  oidcIssuer: ""
+  oidcClientId: ""
+  encryptionKey: ""
+  nightowlApiKey: ""
+  bookowlApiKey: ""
+
+# -- Service
+service:
+  type: ClusterIP
+  port: 8082
+
+# -- Ingress
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: ticketowl.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+    # - secretName: ticketowl-tls
+    #   hosts:
+    #     - ticketowl.example.com
+
+# -- Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# -- Migration job
+migration:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi

@@ -1,0 +1,30 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries:
+      - "sqlc/queries/global/"
+    schema:
+      - "sqlc/schema/global.sql"
+      - "sqlc/schema/tenant.sql"
+    gen:
+      go:
+        package: "db"
+        out: "internal/db"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_json_tags: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "uuid"
+            go_type:
+              import: "github.com/google/uuid"
+              type: "UUID"
+          - db_type: "timestamptz"
+            go_type:
+              import: "time"
+              type: "Time"
+          - db_type: "jsonb"
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"

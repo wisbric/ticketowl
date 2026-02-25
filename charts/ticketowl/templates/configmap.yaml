@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ticketowl.fullname" . }}
+  labels:
+    {{- include "ticketowl.labels" . | nindent 4 }}
+data:
+  TICKETOWL_LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  TICKETOWL_LOG_FORMAT: {{ .Values.config.logFormat | quote }}
+  TICKETOWL_PORT: {{ .Values.config.port | quote }}
+  TICKETOWL_WORKER_POLL_SECONDS: {{ .Values.config.workerPollSeconds | quote }}
+  {{- if .Values.config.nightowlApiUrl }}
+  TICKETOWL_NIGHTOWL_API_URL: {{ .Values.config.nightowlApiUrl | quote }}
+  {{- end }}
+  {{- if .Values.config.bookowlApiUrl }}
+  TICKETOWL_BOOKOWL_API_URL: {{ .Values.config.bookowlApiUrl | quote }}
+  {{- end }}
+  {{- if .Values.config.otelEndpoint }}
+  TICKETOWL_OTEL_ENDPOINT: {{ .Values.config.otelEndpoint | quote }}
+  {{- end }}

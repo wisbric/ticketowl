@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS global.tenants;
+DROP SCHEMA IF EXISTS global;

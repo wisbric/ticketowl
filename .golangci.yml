@@ -1,0 +1,33 @@
+version: "2"
+
+run:
+  timeout: 5m
+  go: "1.25"
+
+linters:
+  enable:
+    - errcheck
+    - errorlint
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - bodyclose
+    - noctx
+  settings:
+    errorlint:
+      errorf: true
+      asserts: true
+      comparison: true
+
+formatters:
+  enable:
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/wisbric/ticketowl
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

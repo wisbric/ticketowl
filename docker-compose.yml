@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ticketowl
+      POSTGRES_PASSWORD: ticketowl
+      POSTGRES_DB: ticketowl
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ticketowl"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6381:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  zammad-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: zammad
+      POSTGRES_PASSWORD: zammad
+      POSTGRES_DB: zammad
+    volumes:
+      - zammad-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zammad"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  zammad-redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  zammad:
+    image: ghcr.io/zammad/zammad:6.3.1
+    ports:
+      - "3003:3000"
+    environment:
+      POSTGRESQL_HOST: zammad-postgres
+      POSTGRESQL_USER: zammad
+      POSTGRESQL_PASS: zammad
+      POSTGRESQL_DB: zammad
+      REDIS_URL: redis://zammad-redis:6379
+    depends_on:
+      zammad-postgres:
+        condition: service_healthy
+      zammad-redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  zammad-pgdata:

@@ -1,0 +1,43 @@
+# Go binaries
+/bin/
+/ticketowl
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test coverage
+coverage.out
+coverage.html
+*.coverprofile
+
+# Build artifacts
+/dist/
+/tmp/
+
+# sqlc generated (regenerated from source)
+internal/db/
+
+# IDE
+.idea/
+.vscode/
+.claude/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# WSL metadata
+*:Zone.Identifier
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Vendor (we use modules)
+/vendor/
+
+# Debug
+__debug_bin*
