@@ -188,6 +188,8 @@ func TestSLAPoller_AlreadyAlerted_NoDuplicate(t *testing.T) {
 	// We can delete this test, or we can add a check in `processBreachedState` if `FirstBreachAlertedAt != nil { return }`.
 	// For now, I'll delete or skip the NoDuplicate test since the DB query handles filtering,
 	// but let's add `if state.FirstBreachAlertedAt != nil { return }` in processBreachedState to be safe.
+
+	if len(alerter.alerts) != 0 {
 		t.Errorf("expected 0 alerts (already alerted), got %d", len(alerter.alerts))
 	}
 
