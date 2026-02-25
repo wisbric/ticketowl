@@ -14,7 +14,7 @@ import (
 
 // SLAPollerStore defines the database operations the SLA poller needs.
 type SLAPollerStore interface {
-	ListStaleStates(ctx context.Context, olderThan time.Time) ([]sla.State, error)
+	ListBreachedTickets(ctx context.Context, now time.Time) ([]sla.State, error)
 	GetPolicyByID(ctx context.Context, id uuid.UUID) (*sla.Policy, error)
 	UpsertState(ctx context.Context, state *sla.State) error
 	GetTicketMetaByID(ctx context.Context, metaID uuid.UUID) (*TicketMetaInfo, error)
@@ -78,11 +78,10 @@ func (p *SLAPoller) poll(ctx context.Context) {
 		telemetry.WorkerPollDuration.Observe(time.Since(start).Seconds())
 	}()
 
-	// Query states updated more than (pollInterval - 5s) ago to avoid missing any.
-	staleThreshold := time.Now().Add(-(p.pollInterval - 5*time.Second))
-	states, err := p.store.ListStaleStates(ctx, staleThreshold)
+	now := time.Now()
+	states, err := p.store.ListBreachedTickets(ctx, now)
 	if err != nil {
-		p.logger.Error("listing stale SLA states", "error", err)
+		p.logger.Error("listing breached SLA states", "error", err)
 		return
 	}
 
@@ -90,14 +89,18 @@ func (p *SLAPoller) poll(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		p.processState(ctx, &states[i])
+		p.processBreachedState(ctx, &states[i], now)
 	}
 }
 
-func (p *SLAPoller) processState(ctx context.Context, state *sla.State) {
+func (p *SLAPoller) processBreachedState(ctx context.Context, state *sla.State, now time.Time) {
+	if state.FirstBreachAlertedAt != nil {
+		return
+	}
+
 	meta, err := p.store.GetTicketMetaByID(ctx, state.TicketMetaID)
 	if err != nil {
-		p.logger.Error("getting ticket meta for SLA poll",
+		p.logger.Error("getting ticket meta for SLA breach",
 			"error", err,
 			"ticket_meta_id", state.TicketMetaID,
 		)
@@ -110,61 +113,41 @@ func (p *SLAPoller) processState(ctx context.Context, state *sla.State) {
 
 	policy, err := p.store.GetPolicyByID(ctx, *meta.SLAPolicyID)
 	if err != nil {
-		p.logger.Error("getting SLA policy for poll",
+		p.logger.Error("getting SLA policy for breach",
 			"error", err,
 			"policy_id", meta.SLAPolicyID,
 		)
 		return
 	}
 
-	now := time.Now()
-	in := sla.ComputeInput{
-		ResponseMinutes:   policy.ResponseMinutes,
-		ResolutionMinutes: policy.ResolutionMinutes,
-		WarningThreshold:  policy.WarningThreshold,
-		TicketCreatedAt:   meta.CreatedAt,
-		ResponseMetAt:     state.ResponseMetAt,
-		AccumulatedPause:  state.AccumulatedPauseSecs,
-		Paused:            state.Paused,
-		Now:               now,
+	telemetry.SLABreachesTotal.Inc()
+
+	breachType := "resolution"
+	if state.ResponseDueAt != nil && state.ResponseDueAt.Before(now) && state.ResponseMetAt == nil {
+		breachType = "response"
 	}
 
-	result := sla.ComputeState(in)
+	err = p.notifier.AlertSLABreach(ctx, notification.BreachInfo{
+		TicketZammadID: meta.ZammadID,
+		TicketNumber:   meta.ZammadNumber,
+		SLAType:        breachType,
+		Priority:       policy.Priority,
+	})
+	if err != nil {
+		p.logger.Error("sending SLA breach alert",
+			"error", err,
+			"ticket_number", meta.ZammadNumber,
+		)
+		return
+	}
 
-	// Update state.
-	state.Label = result.Label
-	state.ResponseDueAt = &result.ResponseDueAt
-	state.ResolutionDueAt = &result.ResolutionDueAt
+	// Set first_breach_alerted_at to prevent duplicate pages.
+	state.Label = sla.LabelBreached
+	state.FirstBreachAlertedAt = &now
 	state.UpdatedAt = now
 
-	// Check for new breach.
-	if sla.CheckBreach(state) {
-		telemetry.SLABreachesTotal.Inc()
-
-		breachType := "resolution"
-		if result.ResponseSecondsRemaining <= 0 && state.ResponseMetAt == nil {
-			breachType = "response"
-		}
-
-		err := p.notifier.AlertSLABreach(ctx, notification.BreachInfo{
-			TicketZammadID: meta.ZammadID,
-			TicketNumber:   meta.ZammadNumber,
-			SLAType:        breachType,
-			Priority:       policy.Priority,
-		})
-		if err != nil {
-			p.logger.Error("sending SLA breach alert",
-				"error", err,
-				"ticket_number", meta.ZammadNumber,
-			)
-		} else {
-			// Set first_breach_alerted_at to prevent duplicate pages.
-			state.FirstBreachAlertedAt = &now
-		}
-	}
-
 	if err := p.store.UpsertState(ctx, state); err != nil {
-		p.logger.Error("updating SLA state after poll",
+		p.logger.Error("updating SLA state after breach alert",
 			"error", err,
 			"ticket_meta_id", state.TicketMetaID,
 		)
