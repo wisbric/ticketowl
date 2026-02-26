@@ -10,6 +10,7 @@ import (
 
 	"github.com/wisbric/core/pkg/auth"
 	"github.com/wisbric/core/pkg/authadapter"
+
 	"github.com/wisbric/ticketowl/internal/db"
 )
 

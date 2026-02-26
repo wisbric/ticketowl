@@ -9,8 +9,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/wisbric/ticketowl/internal/app"
 	coreconfig "github.com/wisbric/core/pkg/config"
+
+	"github.com/wisbric/ticketowl/internal/app"
 	"github.com/wisbric/ticketowl/internal/config"
 )
 

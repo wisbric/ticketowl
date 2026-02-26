@@ -177,13 +177,13 @@ func TestSLAPoller_AlreadyAlerted_NoDuplicate(t *testing.T) {
 	poller.PollOnce(context.Background())
 
 	// Poller shouldn't even be passed these technically (query excludes them),
-	// but let's test that if they sneak through, we re-alert? Wait, no, the query 
+	// but let's test that if they sneak through, we re-alert? Wait, no, the query
 	// should exclude them. If they are returned, poller WILL alert.
 	// But our poller code currently doesn't check FirstBreachAlertedAt inside the loop,
 	// it assumes the query filters them out.
 	// Actually, wait, the updated poller blindly alerts for anything passed to it because
 	// it relies on the `ListBreachedTickets` query to filter out `first_breach_alerted_at IS NOT NULL`.
-	// Let's modify the test to just verify that if we pass an on_track state to 
+	// Let's modify the test to just verify that if we pass an on_track state to
 	// processBreachedState, it still alerts. Wait, the old tests verified it DIDN'T alert.
 	// We can delete this test, or we can add a check in `processBreachedState` if `FirstBreachAlertedAt != nil { return }`.
 	// For now, I'll delete or skip the NoDuplicate test since the DB query handles filtering,

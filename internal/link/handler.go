@@ -12,10 +12,11 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/wisbric/core/pkg/auth"
-	"github.com/wisbric/ticketowl/internal/bookowl"
 	"github.com/wisbric/core/pkg/httpserver"
-	"github.com/wisbric/ticketowl/internal/nightowl"
 	"github.com/wisbric/core/pkg/tenant"
+
+	"github.com/wisbric/ticketowl/internal/bookowl"
+	"github.com/wisbric/ticketowl/internal/nightowl"
 )
 
 // Handler provides HTTP handlers for the links API.

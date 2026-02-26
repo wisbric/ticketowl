@@ -13,11 +13,12 @@ import (
 	"github.com/wisbric/core/pkg/auth"
 	"github.com/wisbric/core/pkg/httpserver"
 	"github.com/wisbric/core/pkg/platform"
+	coretelemetry "github.com/wisbric/core/pkg/telemetry"
 	"github.com/wisbric/core/pkg/version"
+
 	"github.com/wisbric/ticketowl/internal/authadapter"
 	"github.com/wisbric/ticketowl/internal/config"
 	"github.com/wisbric/ticketowl/internal/seed"
-	coretelemetry "github.com/wisbric/core/pkg/telemetry"
 	ticketowlmetrics "github.com/wisbric/ticketowl/internal/telemetry"
 )
 

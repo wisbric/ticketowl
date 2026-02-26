@@ -12,6 +12,7 @@ import (
 	"github.com/wisbric/core/pkg/auth"
 	"github.com/wisbric/core/pkg/httpserver"
 	"github.com/wisbric/core/pkg/tenant"
+
 	"github.com/wisbric/ticketowl/internal/zammad"
 )
 
