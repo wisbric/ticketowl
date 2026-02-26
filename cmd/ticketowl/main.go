@@ -10,14 +10,15 @@ import (
 	"syscall"
 
 	"github.com/wisbric/ticketowl/internal/app"
+	coreconfig "github.com/wisbric/core/pkg/config"
 	"github.com/wisbric/ticketowl/internal/config"
 )
 
 func main() {
-	mode := flag.String("mode", "", "run mode: api, worker, seed, seed-demo, migrate (overrides TICKETOWL_MODE)")
+	mode := flag.String("mode", "", "run mode: api, worker, seed, seed-demo, migrate (overrides APP_MODE)")
 	flag.Parse()
 
-	cfg, err := config.Load()
+	cfg, err := coreconfig.Load[config.Config]()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: loading config: %v\n", err)
 		os.Exit(1)

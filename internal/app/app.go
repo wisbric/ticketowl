@@ -10,19 +10,21 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/wisbric/ticketowl/internal/auth"
+	"github.com/wisbric/core/pkg/auth"
+	"github.com/wisbric/core/pkg/httpserver"
+	"github.com/wisbric/core/pkg/platform"
+	"github.com/wisbric/core/pkg/version"
+	"github.com/wisbric/ticketowl/internal/authadapter"
 	"github.com/wisbric/ticketowl/internal/config"
-	"github.com/wisbric/ticketowl/internal/httpserver"
-	"github.com/wisbric/ticketowl/internal/platform"
 	"github.com/wisbric/ticketowl/internal/seed"
-	"github.com/wisbric/ticketowl/internal/telemetry"
-	"github.com/wisbric/ticketowl/internal/version"
+	coretelemetry "github.com/wisbric/core/pkg/telemetry"
+	ticketowlmetrics "github.com/wisbric/ticketowl/internal/telemetry"
 )
 
 // Run is the main application entry point. It reads config, connects to
 // infrastructure, and starts the appropriate mode.
 func Run(ctx context.Context, cfg *config.Config) error {
-	logger := telemetry.NewLogger(cfg.LogFormat, cfg.LogLevel)
+	logger := coretelemetry.NewLogger(cfg.LogFormat, cfg.LogLevel)
 	slog.SetDefault(logger)
 
 	logger.Info("starting ticketowl",
@@ -32,7 +34,7 @@ func Run(ctx context.Context, cfg *config.Config) error {
 	)
 
 	// Tracing
-	shutdownTracer, err := telemetry.InitTracer(ctx, cfg.OTLPEndpoint, "ticketowl", version.Version)
+	shutdownTracer, err := coretelemetry.InitTracer(ctx, cfg.OTLPEndpoint, "ticketowl", version.Version)
 	if err != nil {
 		return fmt.Errorf("initializing tracer: %w", err)
 	}
@@ -45,7 +47,7 @@ func Run(ctx context.Context, cfg *config.Config) error {
 	}()
 
 	// Metrics
-	metricsReg := telemetry.NewMetricsRegistry()
+	metricsReg := coretelemetry.NewMetricsRegistry(ticketowlmetrics.All()...)
 
 	switch cfg.Mode {
 	case "api":
@@ -89,6 +91,21 @@ func runAPI(ctx context.Context, cfg *config.Config, logger *slog.Logger, metric
 		logger.Info("global migrations applied")
 	}
 
+	// Session manager.
+	sessionSecret := cfg.SessionSecret
+	if sessionSecret == "" {
+		sessionSecret = auth.GenerateDevSecret()
+		logger.Info("session: using auto-generated dev secret (set TICKETOWL_SESSION_SECRET in production)")
+	}
+	sessionMaxAge, err := time.ParseDuration(cfg.SessionMaxAge)
+	if err != nil {
+		return fmt.Errorf("parsing session max age %q: %w", cfg.SessionMaxAge, err)
+	}
+	sessionMgr, err := auth.NewSessionManager(sessionSecret, sessionMaxAge)
+	if err != nil {
+		return fmt.Errorf("creating session manager: %w", err)
+	}
+
 	// OIDC authenticator (optional).
 	var oidcAuth *auth.OIDCAuthenticator
 	if cfg.OIDCIssuerURL != "" && cfg.OIDCClientID != "" {
@@ -101,9 +118,38 @@ func runAPI(ctx context.Context, cfg *config.Config, logger *slog.Logger, metric
 		logger.Info("OIDC authentication disabled (TICKETOWL_OIDC_ISSUER not set)")
 	}
 
-	srv := httpserver.NewServer(cfg, logger, db, rdb, metricsReg, oidcAuth)
+	// Auth storage adapter.
+	authStore := authadapter.New(db)
 
-	// Mount status endpoint.
+	// PAT authenticator.
+	patAuth := auth.NewPATAuthenticator(authStore)
+
+	srv := httpserver.NewServer(httpserver.ServerConfig{
+		CORSAllowedOrigins: cfg.CORSAllowedOrigins,
+		ZammadURL:          cfg.ZammadURL,
+	}, logger, db, rdb, metricsReg, sessionMgr, oidcAuth, patAuth, authStore)
+
+	// --- Auth routes (public, pre-authentication) ---
+
+	// Rate limiter: 10 failed attempts per IP per 15 minutes.
+	rateLimiter := auth.NewRateLimiter(rdb, 10, 15*time.Minute)
+
+	// Local admin login and change-password.
+	localAdminHandler := auth.NewLocalAdminHandler(sessionMgr, authStore, logger, rateLimiter)
+	srv.Router.Post("/auth/local", localAdminHandler.HandleLocalLogin)
+	srv.Router.Post("/auth/change-password", localAdminHandler.HandleChangePassword)
+	srv.Router.Get("/auth/config", localAdminHandler.HandleAuthConfig)
+
+	// Login handler (session info + logout).
+	loginHandler := auth.NewLoginHandler(sessionMgr, authStore, logger, oidcAuth != nil)
+	srv.Router.Post("/auth/login", loginHandler.HandleLogin)
+	srv.Router.Get("/auth/me", loginHandler.HandleMe)
+	srv.Router.Post("/auth/logout", loginHandler.HandleLogout)
+
+	// Public status endpoint (no auth required — used by about page).
+	srv.Router.Get("/status", srv.HandleStatus)
+
+	// Authenticated status endpoint (backward compat).
 	srv.APIRouter.Get("/status", srv.HandleStatus)
 
 	// Domain handlers will be mounted here in later phases.

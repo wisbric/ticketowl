@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/wisbric/ticketowl/internal/tenant"
+	"github.com/wisbric/core/pkg/tenant"
 	"github.com/wisbric/ticketowl/internal/webhook"
 	"github.com/wisbric/ticketowl/internal/zammad"
 )

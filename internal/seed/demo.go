@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/wisbric/ticketowl/internal/tenant"
+	"github.com/wisbric/core/pkg/tenant"
 )
 
 // RunDemo drops and recreates the acme tenant with demo data.

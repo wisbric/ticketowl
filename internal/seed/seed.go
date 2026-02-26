@@ -5,29 +5,33 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 
-	"github.com/wisbric/ticketowl/internal/auth"
-	"github.com/wisbric/ticketowl/internal/tenant"
+	"github.com/wisbric/core/pkg/auth"
+	"github.com/wisbric/core/pkg/tenant"
 )
 
 // DevAPIKey is the development API key (never use in production).
 const DevAPIKey = "to_dev_seed_key_do_not_use_in_production"
 
-// Run creates the "acme" dev tenant with seed data. Idempotent — if the tenant
-// already exists, it logs and returns nil.
+// Run creates the "acme" dev tenant with seed data. Idempotent — re-running
+// will ensure all resources exist without duplicating them.
 func Run(ctx context.Context, db *pgxpool.Pool, databaseURL, migrationsDir string, logger *slog.Logger) error {
 	// Check if tenant already exists.
 	var exists bool
+	var tenantID uuid.UUID
 	err := db.QueryRow(ctx,
-		"SELECT EXISTS(SELECT 1 FROM global.tenants WHERE slug = 'acme')",
-	).Scan(&exists)
-	if err != nil {
-		return fmt.Errorf("checking tenant existence: %w", err)
-	}
+		"SELECT id FROM global.tenants WHERE slug = 'acme'",
+	).Scan(&tenantID)
+	exists = err == nil
 
 	if exists {
-		logger.Info("seed: acme tenant already exists, skipping")
+		logger.Info("seed: acme tenant already exists, ensuring local admin")
+		if err := ensureLocalAdmin(ctx, db, tenantID, logger); err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -80,11 +84,41 @@ func Run(ctx context.Context, db *pgxpool.Pool, databaseURL, migrationsDir strin
 		return fmt.Errorf("seeding integration keys: %w", err)
 	}
 
+	// Create local admin.
+	if err := ensureLocalAdmin(ctx, db, info.ID, logger); err != nil {
+		return err
+	}
+
 	logger.Info("seed: acme tenant created successfully",
 		"tenant_id", info.ID,
 		"api_key", DevAPIKey,
 	)
 
+	return nil
+}
+
+// ensureLocalAdmin creates the local admin account if it doesn't already exist.
+// Uses ON CONFLICT to be idempotent.
+func ensureLocalAdmin(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, logger *slog.Logger) error {
+	localAdminPassword := "ticketowl-admin"
+	adminPasswordHash, err := bcrypt.GenerateFromPassword([]byte(localAdminPassword), 12)
+	if err != nil {
+		return fmt.Errorf("hashing local admin password: %w", err)
+	}
+
+	tag, err := pool.Exec(ctx,
+		"INSERT INTO public.local_admins (tenant_id, username, password_hash, must_change) VALUES ($1, 'admin', $2, true) ON CONFLICT (tenant_id) DO NOTHING",
+		tenantID, string(adminPasswordHash),
+	)
+	if err != nil {
+		return fmt.Errorf("creating local admin: %w", err)
+	}
+
+	if tag.RowsAffected() > 0 {
+		logger.Info("seed: created local admin", "username", "admin", "password", localAdminPassword)
+	} else {
+		logger.Info("seed: local admin already exists")
+	}
 	return nil
 }
 

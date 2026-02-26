@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/wisbric/ticketowl/internal/httpserver"
-	"github.com/wisbric/ticketowl/internal/tenant"
+	"github.com/wisbric/core/pkg/httpserver"
+	"github.com/wisbric/core/pkg/tenant"
 )
 
 // Handler provides HTTP handlers for the SLA API.

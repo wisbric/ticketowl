@@ -45,7 +45,7 @@ In production, `api` and `worker` run as separate Kubernetes Deployments from th
 internal/
   httpserver/     — shared server setup, Respond/RespondError helpers
   tenant/         — middleware: resolve tenant, acquire conn, set search_path
-  auth/           — OIDC token validation, API key lookup, role extraction
+  authadapter/    — Auth storage adapter (implements core/pkg/auth.Storage)
 
   zammad/         — typed Zammad REST client
   nightowl/       — typed NightOwl REST client
@@ -72,7 +72,7 @@ Each domain package follows the NightOwl convention:
 
 ## API Endpoints
 
-All endpoints are prefixed `/api/v1`. Auth via `Authorization: Bearer <jwt>` or `X-API-Key`.
+All endpoints are prefixed `/api/v1`. Auth via `wisbric_session` cookie, `Authorization: Bearer <jwt>`, or `X-API-Key`.
 
 ### Tickets
 ```
@@ -150,10 +150,16 @@ GET    /metrics
 
 ## Authentication & Authorisation
 
+Auth is handled by the shared `core/pkg/auth` package (same as NightOwl/BookOwl). All browser sessions use HttpOnly cookies.
+
+**Middleware precedence:** Cookie → PAT → Session JWT (Bearer) → OIDC JWT (Bearer) → API Key → Dev header.
+
 ### Internal users (agents, admins)
-- OIDC JWT from Keycloak, same realm as NightOwl/BookOwl
+- **Cookie session:** `wisbric_session` (HttpOnly, Secure, SameSite=Strict) — set on login via `/auth/local` or `/auth/callback`
+- **OIDC:** Keycloak, same realm as NightOwl/BookOwl
 - Role claim `ticketowl_role`: `admin` | `agent` | `viewer`
-- Tenant resolved from JWT `tenant` claim
+- Tenant resolved from session cookie claims or JWT `tenant` claim
+- Silent cookie refresh when token has <2h remaining
 
 ### External customers
 - OIDC JWT from customer-scoped Keycloak client
@@ -164,6 +170,11 @@ GET    /metrics
 ### Service-to-service
 - API key in `X-API-Key` header, stored as SHA-256 hash in `global.api_keys`
 - NightOwl and BookOwl each have their own key per tenant
+
+### Local admin
+- Break-glass login at `POST /auth/local` (username + password, bcrypt)
+- Forced password change on first login (`must_change = true`)
+- Creates `wisbric_session` cookie on success
 
 ---
 
@@ -227,6 +238,6 @@ web/src/
   components/
     tickets/ links/ sla/ portal/ admin/ ui/
   lib/
-    api.ts                     — typed TanStack Query hooks
-    auth.ts                    — OIDC helpers
+    api.ts                     — typed TanStack Query hooks (credentials: 'same-origin')
+    auth.ts                    — auth context (cookie-based via /auth/me)
 ```

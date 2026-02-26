@@ -9,9 +9,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/wisbric/ticketowl/internal/auth"
-	"github.com/wisbric/ticketowl/internal/httpserver"
-	"github.com/wisbric/ticketowl/internal/tenant"
+	"github.com/wisbric/core/pkg/auth"
+	"github.com/wisbric/core/pkg/httpserver"
+	"github.com/wisbric/core/pkg/tenant"
 	"github.com/wisbric/ticketowl/internal/zammad"
 )
 

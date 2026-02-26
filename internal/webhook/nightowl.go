@@ -8,8 +8,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/wisbric/ticketowl/internal/httpserver"
-	"github.com/wisbric/ticketowl/internal/tenant"
+	"github.com/wisbric/core/pkg/httpserver"
+	"github.com/wisbric/core/pkg/tenant"
 )
 
 // nightOwlPayload is the inbound payload from a NightOwl webhook.

@@ -50,7 +50,7 @@ The product is called **TicketOwl**. It uses the NightOwl design system.
 - **Database:** PostgreSQL 16+ via jackc/pgx/v5 + sqlc
 - **Migrations:** golang-migrate (SQL files in `migrations/`)
 - **Cache:** Redis 7 via redis/go-redis/v9
-- **Auth:** OIDC (coreos/go-oidc/v3) + API keys (SHA-256) — same provider as NightOwl/BookOwl
+- **Auth:** Cookie sessions (`wisbric_session`) + OIDC (coreos/go-oidc/v3) + API keys (SHA-256) — auth logic lives in shared `core/pkg/auth`
 - **Zammad client:** `net/http` typed wrapper in `internal/zammad/`
 - **Metrics:** prometheus/client_golang (namespace: `ticketowl`)
 - **Tracing:** OpenTelemetry (OTLP gRPC)
@@ -94,11 +94,21 @@ These mirror NightOwl and BookOwl exactly. If in doubt, look at how NightOwl doe
 
 ## Multi-Tenancy
 
-Schema-per-tenant isolation, identical to NightOwl and BookOwl. Every request resolves a tenant from JWT or API key. The middleware acquires a pooled connection and sets `search_path` before any query.
+Schema-per-tenant isolation, identical to NightOwl and BookOwl. Every request resolves a tenant from session cookie, JWT, or API key. The middleware acquires a pooled connection and sets `search_path` before any query.
 
 TicketOwl tenants correspond 1:1 with NightOwl and BookOwl tenants — they share the same tenant slug. Each tenant stores its own Zammad instance URL and API token.
 
 Never reference tenant data without going through the tenant middleware.
+
+## Authentication
+
+Auth is handled by the shared `core/pkg/auth` package (same as NightOwl/BookOwl). Middleware precedence: Cookie → PAT → Session JWT (Bearer) → OIDC JWT (Bearer) → API Key → Dev header.
+
+- **Cookie sessions:** `wisbric_session` HttpOnly cookie set on login, with silent refresh
+- **Local admin:** Break-glass login at `POST /auth/local`, forced password change on first login
+- **OIDC:** Via Keycloak, same realm as NightOwl/BookOwl
+- **API keys:** `X-API-Key` header for service-to-service calls (NightOwl, BookOwl)
+- **Storage adapter:** `internal/authadapter/` implements `core/pkg/auth.Storage`
 
 ## Development
 

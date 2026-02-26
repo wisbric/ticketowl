@@ -1,23 +1,7 @@
 package telemetry
 
-import (
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
-)
+import "github.com/prometheus/client_golang/prometheus"
 
-// HTTPRequestDuration tracks HTTP request latency.
-var HTTPRequestDuration = prometheus.NewHistogramVec(
-	prometheus.HistogramOpts{
-		Namespace: "ticketowl",
-		Subsystem: "api",
-		Name:      "request_duration_seconds",
-		Help:      "HTTP request duration in seconds.",
-		Buckets:   prometheus.DefBuckets,
-	},
-	[]string{"method", "path", "status"},
-)
-
-// TicketRequestsTotal counts ticket-related API requests.
 var TicketRequestsTotal = prometheus.NewCounterVec(
 	prometheus.CounterOpts{
 		Namespace: "ticketowl",
@@ -27,7 +11,6 @@ var TicketRequestsTotal = prometheus.NewCounterVec(
 	[]string{"operation"},
 )
 
-// SLABreachesTotal counts SLA breaches detected.
 var SLABreachesTotal = prometheus.NewCounter(
 	prometheus.CounterOpts{
 		Namespace: "ticketowl",
@@ -36,7 +19,6 @@ var SLABreachesTotal = prometheus.NewCounter(
 	},
 )
 
-// ZammadRequestDuration tracks Zammad API call latency.
 var ZammadRequestDuration = prometheus.NewHistogramVec(
 	prometheus.HistogramOpts{
 		Namespace: "ticketowl",
@@ -47,7 +29,6 @@ var ZammadRequestDuration = prometheus.NewHistogramVec(
 	[]string{"method", "endpoint"},
 )
 
-// WorkerPollDuration tracks SLA polling loop duration.
 var WorkerPollDuration = prometheus.NewHistogram(
 	prometheus.HistogramOpts{
 		Namespace: "ticketowl",
@@ -57,17 +38,12 @@ var WorkerPollDuration = prometheus.NewHistogram(
 	},
 )
 
-// NewMetricsRegistry creates a Prometheus registry with default and custom collectors.
-func NewMetricsRegistry() *prometheus.Registry {
-	reg := prometheus.NewRegistry()
-	reg.MustRegister(
-		collectors.NewGoCollector(),
-		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
-		HTTPRequestDuration,
+// All returns all TicketOwl-specific metrics for registration.
+func All() []prometheus.Collector {
+	return []prometheus.Collector{
 		TicketRequestsTotal,
 		SLABreachesTotal,
 		ZammadRequestDuration,
 		WorkerPollDuration,
-	)
-	return reg
+	}
 }

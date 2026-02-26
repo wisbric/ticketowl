@@ -13,9 +13,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/wisbric/ticketowl/internal/auth"
-	"github.com/wisbric/ticketowl/internal/httpserver"
-	"github.com/wisbric/ticketowl/internal/tenant"
+	"github.com/wisbric/core/pkg/auth"
+	"github.com/wisbric/core/pkg/httpserver"
+	"github.com/wisbric/core/pkg/tenant"
 )
 
 // ZammadTester can test connectivity to a Zammad instance.

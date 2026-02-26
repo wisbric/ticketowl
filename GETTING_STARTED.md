@@ -111,8 +111,8 @@ make test
 | TicketOwl API URL | http://localhost:8082 |
 | TicketOwl UI URL | http://localhost:3002/login |
 | Dev API key | `to_dev_seed_key_do_not_use_in_production` |
-| Local admin user | `admin` |
-| Local admin password | `ticketowl-admin` |
+| Local admin user | `admin` (login at `/auth/local`, sets `wisbric_session` cookie) |
+| Local admin password | `ticketowl-admin` (forced password change on first login) |
 | DB DSN | `postgres://ticketowl:ticketowl@localhost:5434/ticketowl?sslmode=disable` |
 | Redis URL | `redis://localhost:6381` |
 | Zammad URL | `http://localhost:3003` |

@@ -7,7 +7,6 @@ import {
   createRootRoute,
   createRoute,
   Outlet,
-  redirect,
 } from "@tanstack/react-router";
 import { AuthProvider } from "@/contexts/auth-context";
 import { AppLayout } from "@/components/layout/app-layout";
@@ -24,6 +23,7 @@ import { AdminCustomersPage } from "@/pages/admin-customers";
 import { AdminRulesPage } from "@/pages/admin-rules";
 import { PortalTicketListPage } from "@/pages/portal-ticket-list";
 import { PortalTicketDetailPage } from "@/pages/portal-ticket-detail";
+import { AboutPage } from "@/pages/about";
 import { NotFoundPage } from "@/pages/not-found";
 import "./index.css";
 
@@ -35,12 +35,12 @@ const queryClient = new QueryClient({
   },
 });
 
+// Auth guard: in dev mode always allow; in prod cookie-based session
+// is validated by the AuthProvider on mount.
 function requireAuth() {
   if (import.meta.env.DEV) return;
-  const token = localStorage.getItem("ticketowl_token");
-  if (!token) {
-    throw redirect({ to: "/login" });
-  }
+  // Cookie-based auth: HttpOnly cookie can't be checked from JS.
+  // AuthProvider validates the session on mount via /auth/me.
 }
 
 const publicRootRoute = createRootRoute({
@@ -119,6 +119,11 @@ const adminRulesRoute = createRoute({
   path: "/admin/rules",
   component: AdminRulesPage,
 });
+const aboutRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: "/about",
+  component: AboutPage,
+});
 const notFoundRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: "$",
@@ -148,6 +153,7 @@ const routeTree = publicRootRoute.addChildren([
     adminIntegrationsRoute,
     adminCustomersRoute,
     adminRulesRoute,
+    aboutRoute,
     notFoundRoute,
   ]),
   portalLayoutRoute.addChildren([

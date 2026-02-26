@@ -4,6 +4,7 @@ import {
   Inbox,
   Clock,
   Settings,
+  Info,
   Moon,
   Sun,
   LogOut,
@@ -18,10 +19,6 @@ import { useAuth } from "@/contexts/auth-context";
 const navItems = [
   { to: "/", label: "The Perch", icon: Inbox },
   { to: "/sla", label: "The Watch", icon: Clock },
-] as const;
-
-const adminItems = [
-  { to: "/admin", label: "Admin", icon: Settings },
 ] as const;
 
 function getInitials(name: string): string {
@@ -80,15 +77,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         <Link to="/" className="mb-2" title="Home">
           <img src="/owl-logo.png" alt="TicketOwl" className="h-7 brightness-0 dark:brightness-100" />
         </Link>
-        {onToggle && (
-          <button
-            onClick={onToggle}
-            className="mb-2 rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title="Expand sidebar"
-          >
-            <PanelLeftOpen className="h-4 w-4" />
-          </button>
-        )}
 
         <nav className="flex flex-1 flex-col items-center gap-1">
           {navItems.map((item) => {
@@ -111,27 +99,18 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               </Link>
             );
           })}
-          {user?.role === "admin" && adminItems.map((item) => {
-            const active = matchRoute({ to: item.to, fuzzy: true });
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  "rounded-md p-2 transition-colors",
-                  active
-                    ? "bg-muted text-accent"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-                title={item.label}
-              >
-                <item.icon className="h-4 w-4" />
-              </Link>
-            );
-          })}
         </nav>
 
         <div className="mt-auto flex flex-col items-center gap-1 pt-2">
+          {onToggle && (
+            <button
+              onClick={onToggle}
+              className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              title="Expand sidebar"
+            >
+              <PanelLeftOpen className="h-4 w-4" />
+            </button>
+          )}
           <button
             onClick={toggle}
             className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -197,6 +176,32 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               )}
             </div>
           )}
+          {user?.role === "admin" && (
+            <Link
+              to="/admin"
+              className={cn(
+                "rounded-md p-2 transition-colors",
+                matchRoute({ to: "/admin", fuzzy: true })
+                  ? "bg-muted text-accent"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+              title="Admin"
+            >
+              <Settings className="h-4 w-4" />
+            </Link>
+          )}
+          <Link
+            to="/about"
+            className={cn(
+              "rounded-md p-2 transition-colors",
+              matchRoute({ to: "/about", fuzzy: false })
+                ? "bg-muted text-accent"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+            title="About"
+          >
+            <Info className="h-4 w-4" />
+          </Link>
         </div>
       </aside>
     );
@@ -232,34 +237,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             </Link>
           );
         })}
-
-        {user?.role === "admin" && (
-          <>
-            <div className="my-2 h-px bg-border" />
-            {adminItems.map((item) => {
-              const active = matchRoute({ to: item.to, fuzzy: true });
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={cn(
-                    "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
-                    active
-                      ? "bg-muted text-accent"
-                      : "text-sidebar-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </>
-        )}
       </nav>
 
-      {onToggle && (
-        <div className="px-3 pb-1">
+      {/* Collapse toggle */}
+      <div className="px-3 pb-1 space-y-0.5">
+        {onToggle && (
           <button
             onClick={onToggle}
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -268,8 +250,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <PanelLeftClose className="h-4 w-4" />
             <span>Collapse</span>
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="border-t border-border px-3 py-3">
         {user ? (
@@ -347,8 +329,33 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         ) : null}
       </div>
 
-      <div className="px-4 py-2 text-xs text-muted-foreground">
-        TicketOwl v0.1.0 — A Wisbric product
+      <div className="px-3 pb-2 space-y-0.5">
+        {user?.role === "admin" && (
+          <Link
+            to="/admin"
+            className={cn(
+              "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+              matchRoute({ to: "/admin", fuzzy: true })
+                ? "bg-muted text-accent"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <Settings className="h-4 w-4" />
+            Admin
+          </Link>
+        )}
+        <Link
+          to="/about"
+          className={cn(
+            "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+            matchRoute({ to: "/about", fuzzy: false })
+              ? "bg-muted text-accent"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+        >
+          <Info className="h-4 w-4" />
+          About
+        </Link>
       </div>
     </aside>
   );

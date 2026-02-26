@@ -82,7 +82,7 @@ ingress:
   enabled: false
   className: nginx
   annotations: {}
-    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # certmanager.step.sm/cluster-issuer: step-cluster-issuer
   hosts:
     - host: ticketowl.example.com
       paths:
