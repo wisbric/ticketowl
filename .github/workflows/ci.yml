@@ -15,6 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: wisbric/core
+          path: ../core
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25"
@@ -59,6 +63,10 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: wisbric/core
+          path: ../core
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25"
@@ -79,6 +87,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: wisbric/core
+          path: ../core
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25"
@@ -96,6 +108,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: wisbric/core
+          path: ../core
       - uses: sqlc-dev/setup-sqlc@v4
         with:
           sqlc-version: "1.30.0"
