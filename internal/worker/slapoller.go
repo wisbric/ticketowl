@@ -95,6 +95,14 @@ func (p *SLAPoller) poll(ctx context.Context) {
 
 func (p *SLAPoller) processBreachedState(ctx context.Context, state *sla.State, now time.Time) {
 	if state.FirstBreachAlertedAt != nil {
+		// Already alerted — update timestamps for consistency but skip re-alerting.
+		state.UpdatedAt = now
+		if err := p.store.UpsertState(ctx, state); err != nil {
+			p.logger.Error("updating SLA state (already alerted)",
+				"error", err,
+				"ticket_meta_id", state.TicketMetaID,
+			)
+		}
 		return
 	}
 
