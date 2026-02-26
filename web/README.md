@@ -27,7 +27,7 @@ npm run dev   # http://localhost:3002
 
 The Vite dev server proxies `/api` requests to `localhost:8082` (the Go API).
 
-In dev mode, authentication is automatic — the auth context uses the dev API key `to_dev_seed_key_do_not_use_in_production`.
+In dev mode (`DEV_MODE=true`), authentication is automatic — the auth context uses the dev API key `to_dev_seed_key_do_not_use_in_production`.
 
 ## Build
 
