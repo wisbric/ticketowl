@@ -36,9 +36,6 @@ internal/db/
 .env.local
 .env.*.local
 
-# Vendor (we use modules)
-/vendor/
-
 # Debug
 __debug_bin*
 
