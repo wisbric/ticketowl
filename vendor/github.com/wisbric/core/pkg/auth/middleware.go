@@ -24,7 +24,7 @@ const MethodSession = "session"
 //  3. X-Tenant-Slug: <slug>       →  Development-only fallback (no real auth)
 //
 // If none succeed, the request is rejected with 401.
-func Middleware(sessionMgr *SessionManager, oidcAuth *OIDCAuthenticator, patAuth *PATAuthenticator, store Storage, logger *slog.Logger) func(http.Handler) http.Handler {
+func Middleware(sessionMgr *SessionManager, oidcAuth *OIDCAuthenticator, patAuth *PATAuthenticator, store Storage, logger *slog.Logger, allowDevHeader bool) func(http.Handler) http.Handler {
 	apikeyAuth := &APIKeyAuthenticator{Store: store}
 
 	return func(next http.Handler) http.Handler {
@@ -147,13 +147,13 @@ func Middleware(sessionMgr *SessionManager, oidcAuth *OIDCAuthenticator, patAuth
 					}
 
 					if claims.OrgID != "" {
-				orgID, err := uuid.Parse(claims.OrgID)
-				if err == nil {
-					identity.OrgID = &orgID
-				}
-			}
+						orgID, err := uuid.Parse(claims.OrgID)
+						if err == nil {
+							identity.OrgID = &orgID
+						}
+					}
 
-			logger.Debug("authenticated via OIDC",
+					logger.Debug("authenticated via OIDC",
 						"sub", claims.Subject,
 						"email", claims.Email,
 						"tenant_slug", claims.TenantSlug,
@@ -197,7 +197,7 @@ func Middleware(sessionMgr *SessionManager, oidcAuth *OIDCAuthenticator, patAuth
 			}
 
 			// 3. Dev-mode fallback: X-Tenant-Slug header (no real authentication).
-			if identity == nil {
+			if identity == nil && allowDevHeader {
 				if slug := r.Header.Get("X-Tenant-Slug"); slug != "" {
 					devID := uuid.Nil
 					identity = &Identity{

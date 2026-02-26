@@ -3,8 +3,10 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -42,15 +44,17 @@ type LoginHandler struct {
 	store       Storage
 	logger      *slog.Logger
 	oidcEnabled bool
+	rateLimiter LoginRateLimiter
 }
 
 // NewLoginHandler creates a new login handler.
-func NewLoginHandler(sm *SessionManager, store Storage, logger *slog.Logger, oidcEnabled bool) *LoginHandler {
+func NewLoginHandler(sm *SessionManager, store Storage, logger *slog.Logger, oidcEnabled bool, rl LoginRateLimiter) *LoginHandler {
 	return &LoginHandler{
 		sessionMgr:  sm,
 		store:       store,
 		logger:      logger,
 		oidcEnabled: oidcEnabled,
+		rateLimiter: rl,
 	}
 }
 
@@ -67,10 +71,34 @@ func (h *LoginHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Rate limit check.
+	ip := clientIP(r)
+	if h.rateLimiter != nil {
+		result, err := h.rateLimiter.Check(r.Context(), ip)
+		if err != nil {
+			h.logger.Error("rate limit check failed", "error", err)
+		} else if !result.Allowed {
+			retryAfter := int(time.Until(result.RetryAt).Seconds())
+			if retryAfter < 1 {
+				retryAfter = 1
+			}
+			w.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfter))
+			respondJSON(w, http.StatusTooManyRequests, map[string]any{
+				"error":       "rate_limited",
+				"message":     "too many login attempts",
+				"retry_after": retryAfter,
+			})
+			return
+		}
+	}
+
 	// Look up the user across all tenant schemas.
 	userRow, tenantSlug, tenantID, err := h.findUserByEmail(r.Context(), req.Email)
 	if err != nil {
 		h.logger.Warn("login: user lookup failed", "email", req.Email, "error", err)
+		if h.rateLimiter != nil {
+			_ = h.rateLimiter.Record(r.Context(), ip)
+		}
 		respondErr(w, http.StatusUnauthorized, "unauthorized", "invalid email or password")
 		return
 	}
@@ -78,13 +106,24 @@ func (h *LoginHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// Verify password.
 	if userRow.PasswordHash == nil || *userRow.PasswordHash == "" {
 		h.logger.Warn("login: user has no password set", "email", req.Email)
+		if h.rateLimiter != nil {
+			_ = h.rateLimiter.Record(r.Context(), ip)
+		}
 		respondErr(w, http.StatusUnauthorized, "unauthorized", "invalid email or password")
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(*userRow.PasswordHash), []byte(req.Password)); err != nil {
+		if h.rateLimiter != nil {
+			_ = h.rateLimiter.Record(r.Context(), ip)
+		}
 		respondErr(w, http.StatusUnauthorized, "unauthorized", "invalid email or password")
 		return
+	}
+
+	// Reset rate limit on success.
+	if h.rateLimiter != nil {
+		_ = h.rateLimiter.Reset(r.Context(), ip)
 	}
 
 	// Issue session token.

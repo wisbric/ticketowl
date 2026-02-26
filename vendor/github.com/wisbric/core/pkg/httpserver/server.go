@@ -25,6 +25,7 @@ import (
 type ServerConfig struct {
 	CORSAllowedOrigins []string
 	ZammadURL          string // optional, for readyz
+	DevMode            bool
 }
 
 // Server holds the HTTP server dependencies.
@@ -58,12 +59,17 @@ func NewServer(cfg ServerConfig, logger *slog.Logger, db *pgxpool.Pool, rdb *red
 	s.Router.Use(Logger(logger))
 	s.Router.Use(Metrics)
 	s.Router.Use(middleware.Recoverer)
+	allowCredentials := true
+	if contains(cfg.CORSAllowedOrigins, "*") {
+		allowCredentials = false
+		logger.Warn("cors: wildcard origin with credentials is unsafe; disabling credentials")
+	}
 	s.Router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   cfg.CORSAllowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-API-Key", "X-Request-ID", "X-Tenant-Slug"},
 		ExposedHeaders:   []string{"X-Request-ID"},
-		AllowCredentials: true,
+		AllowCredentials: allowCredentials,
 		MaxAge:           300,
 	}))
 
@@ -77,7 +83,7 @@ func NewServer(cfg ServerConfig, logger *slog.Logger, db *pgxpool.Pool, rdb *red
 	// Authenticated, tenant-scoped API routes.
 	s.Router.Route("/api/v1", func(r chi.Router) {
 		// 1. Authenticate: OIDC JWT → API key → dev header fallback.
-		r.Use(auth.Middleware(sessionMgr, oidcAuth, patAuth, authStore, logger))
+		r.Use(auth.Middleware(sessionMgr, oidcAuth, patAuth, authStore, logger, cfg.DevMode))
 
 		// 2. Resolve tenant and set search_path from the authenticated identity.
 		r.Use(tenant.Middleware(db, &authContextResolver{}, logger))
@@ -103,6 +109,15 @@ func NewServer(cfg ServerConfig, logger *slog.Logger, db *pgxpool.Pool, rdb *red
 	})
 
 	return s
+}
+
+func contains(haystack []string, needle string) bool {
+	for _, v := range haystack {
+		if v == needle {
+			return true
+		}
+	}
+	return false
 }
 
 // authContextResolver reads the tenant slug from the auth Identity stored in

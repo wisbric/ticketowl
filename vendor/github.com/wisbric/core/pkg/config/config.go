@@ -33,7 +33,7 @@ type BaseConfig struct {
 	MigrationsTenantDir string `env:"MIGRATIONS_TENANT_DIR" envDefault:"migrations/tenant"`
 
 	// CORS
-	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS" envDefault:"*" envSeparator:","`
+	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS" envSeparator:","`
 
 	// OIDC
 	OIDCIssuerURL string `env:"OIDC_ISSUER"`

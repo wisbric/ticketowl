@@ -95,8 +95,11 @@ func runAPI(ctx context.Context, cfg *config.Config, logger *slog.Logger, metric
 	// Session manager.
 	sessionSecret := cfg.SessionSecret
 	if sessionSecret == "" {
+		if !cfg.DevMode {
+			return fmt.Errorf("missing TICKETOWL_SESSION_SECRET (required when DEV_MODE=false)")
+		}
 		sessionSecret = auth.GenerateDevSecret()
-		logger.Info("session: using auto-generated dev secret (set TICKETOWL_SESSION_SECRET in production)")
+		logger.Info("session: using auto-generated dev secret (DEV_MODE=true)")
 	}
 	sessionMaxAge, err := time.ParseDuration(cfg.SessionMaxAge)
 	if err != nil {
@@ -128,6 +131,7 @@ func runAPI(ctx context.Context, cfg *config.Config, logger *slog.Logger, metric
 	srv := httpserver.NewServer(httpserver.ServerConfig{
 		CORSAllowedOrigins: cfg.CORSAllowedOrigins,
 		ZammadURL:          cfg.ZammadURL,
+		DevMode:            cfg.DevMode,
 	}, logger, db, rdb, metricsReg, sessionMgr, oidcAuth, patAuth, authStore)
 
 	// --- Auth routes (public, pre-authentication) ---
@@ -142,7 +146,7 @@ func runAPI(ctx context.Context, cfg *config.Config, logger *slog.Logger, metric
 	srv.Router.Get("/auth/config", localAdminHandler.HandleAuthConfig)
 
 	// Login handler (session info + logout).
-	loginHandler := auth.NewLoginHandler(sessionMgr, authStore, logger, oidcAuth != nil)
+	loginHandler := auth.NewLoginHandler(sessionMgr, authStore, logger, oidcAuth != nil, rateLimiter)
 	srv.Router.Post("/auth/login", loginHandler.HandleLogin)
 	srv.Router.Get("/auth/me", loginHandler.HandleMe)
 	srv.Router.Post("/auth/logout", loginHandler.HandleLogout)

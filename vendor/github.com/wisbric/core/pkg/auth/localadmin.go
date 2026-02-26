@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
-	"strings"
 	"time"
 	"unicode"
 
@@ -50,11 +48,11 @@ type LocalAdminHandler struct {
 	sessionMgr  *SessionManager
 	store       Storage
 	logger      *slog.Logger
-	rateLimiter *RateLimiter
+	rateLimiter LoginRateLimiter
 }
 
 // NewLocalAdminHandler creates a new local admin handler.
-func NewLocalAdminHandler(sm *SessionManager, store Storage, logger *slog.Logger, rl *RateLimiter) *LocalAdminHandler {
+func NewLocalAdminHandler(sm *SessionManager, store Storage, logger *slog.Logger, rl LoginRateLimiter) *LocalAdminHandler {
 	return &LocalAdminHandler{
 		sessionMgr:  sm,
 		store:       store,
@@ -329,20 +327,4 @@ func validatePassword(pw string) error {
 	}
 
 	return nil
-}
-
-// clientIP extracts the client IP from the request, handling X-Forwarded-For.
-func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		parts := strings.SplitN(xff, ",", 2)
-		return strings.TrimSpace(parts[0])
-	}
-	if xff := r.Header.Get("X-Real-IP"); xff != "" {
-		return strings.TrimSpace(xff)
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
 }

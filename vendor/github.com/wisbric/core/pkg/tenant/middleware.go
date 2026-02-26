@@ -3,7 +3,6 @@ package tenant
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -79,7 +78,8 @@ func MiddlewareWithLookup(pool *pgxpool.Pool, lookup TenantLookup, resolver Reso
 			}
 			defer conn.Release()
 
-			if _, err := conn.Exec(r.Context(), fmt.Sprintf("SET search_path TO %s, public", schema)); err != nil {
+			searchPath := schema + ", public"
+			if _, err := conn.Exec(r.Context(), "SELECT set_config('search_path', $1, false)", searchPath); err != nil {
 				logger.Error("setting search_path", "schema", schema, "error", err)
 				respondError(w, http.StatusInternalServerError, "internal", "database configuration error")
 				return

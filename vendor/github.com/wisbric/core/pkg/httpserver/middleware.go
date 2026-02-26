@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/wisbric/core/pkg/telemetry"
@@ -65,9 +66,16 @@ func Metrics(next http.Handler) http.Handler {
 
 		next.ServeHTTP(sw, r)
 
+		routePath := r.URL.Path
+		if routeCtx := chi.RouteContext(r.Context()); routeCtx != nil {
+			if pattern := routeCtx.RoutePattern(); pattern != "" {
+				routePath = pattern
+			}
+		}
+
 		telemetry.HTTPRequestDuration.WithLabelValues(
 			r.Method,
-			r.URL.Path,
+			routePath,
 			strconv.Itoa(sw.status),
 		).Observe(time.Since(start).Seconds())
 	})

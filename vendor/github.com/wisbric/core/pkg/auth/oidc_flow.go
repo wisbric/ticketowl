@@ -133,19 +133,15 @@ func (h *OIDCFlowHandler) HandleCallback(w http.ResponseWriter, r *http.Request)
 		Method:     "oidc",
 	}
 
-	token, err := h.sessionMgr.IssueToken(sessClaims)
-	if err != nil {
+	// Set session cookie (browser clients).
+	if err := h.sessionMgr.IssueCookie(w, sessClaims); err != nil {
 		h.logger.Error("oidc: issuing session token", "error", err)
 		respondErr(w, http.StatusInternalServerError, "internal", "failed to issue token")
 		return
 	}
 
-	// Set session cookie (browser clients).
-	_ = h.sessionMgr.IssueCookie(w, sessClaims)
-
-	// Redirect to frontend with token (backward compat during transition).
-	redirectURL := fmt.Sprintf("%s?token=%s", h.oauth2Cfg.RedirectURL, token)
-	http.Redirect(w, r, redirectURL, http.StatusFound)
+	// Redirect to frontend (token is stored in HttpOnly cookie).
+	http.Redirect(w, r, h.oauth2Cfg.RedirectURL, http.StatusFound)
 }
 
 // findOrCreateUser resolves an OIDC user to a database user row.

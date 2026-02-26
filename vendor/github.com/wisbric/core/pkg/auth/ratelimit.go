@@ -9,6 +9,13 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// LoginRateLimiter defines the interface for login rate limiting.
+type LoginRateLimiter interface {
+	Check(ctx context.Context, ip string) (*RateLimitResult, error)
+	Record(ctx context.Context, ip string) error
+	Reset(ctx context.Context, ip string) error
+}
+
 // RateLimiter limits login attempts per IP using Redis INCR + EXPIRE.
 type RateLimiter struct {
 	redis      *redis.Client
