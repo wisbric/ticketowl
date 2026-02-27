@@ -3,6 +3,7 @@ sql:
   - engine: "postgresql"
     queries:
       - "sqlc/queries/global/"
+      - "sqlc/queries/tenant/"
     schema:
       - "sqlc/schema/global.sql"
       - "sqlc/schema/tenant.sql"

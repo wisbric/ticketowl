@@ -22,6 +22,10 @@ type Config struct {
 	// Worker
 	WorkerPollSeconds int `env:"TICKETOWL_WORKER_POLL_SECONDS" envDefault:"60"`
 
+	// OIDC (TicketOwl-specific: Authorization Code flow)
+	OIDCClientSecret string `env:"TICKETOWL_OIDC_CLIENT_SECRET"`
+	OIDCRedirectURL  string `env:"TICKETOWL_OIDC_REDIRECT_URL" envDefault:"http://localhost:3002/auth/oidc/callback"`
+
 	// Session
 	SessionSecret string `env:"TICKETOWL_SESSION_SECRET"`
 	SessionMaxAge string `env:"TICKETOWL_SESSION_MAX_AGE" envDefault:"24h"`

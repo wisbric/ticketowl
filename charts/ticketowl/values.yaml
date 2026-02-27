@@ -88,6 +88,8 @@ secrets:
   redisUrl: ""
   oidcIssuer: ""
   oidcClientId: ""
+  oidcClientSecret: ""
+  oidcRedirectUrl: ""   # e.g. https://ticketowl.example.com/auth/oidc/callback
   encryptionKey: ""
   nightowlApiKey: ""
   bookowlApiKey: ""

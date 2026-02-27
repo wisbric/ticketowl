@@ -13,6 +13,7 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { PortalLayout } from "@/components/layout/portal-layout";
 import { initTheme } from "@/hooks/use-theme";
 import { LoginPage } from "@/pages/login";
+import { AuthCallbackPage } from "@/pages/auth-callback";
 import { TicketListPage } from "@/pages/ticket-list";
 import { TicketDetailPage } from "@/pages/ticket-detail";
 import { AdminSLAPage } from "@/pages/admin-sla";
@@ -76,6 +77,11 @@ const loginRoute = createRoute({
   getParentRoute: () => publicRootRoute,
   path: "/login",
   component: LoginPage,
+});
+const authCallbackRoute = createRoute({
+  getParentRoute: () => publicRootRoute,
+  path: "/auth/callback",
+  component: AuthCallbackPage,
 });
 
 // Authenticated app routes.
@@ -144,6 +150,7 @@ const portalTicketDetailRoute = createRoute({
 
 const routeTree = publicRootRoute.addChildren([
   loginRoute,
+  authCallbackRoute,
   appLayoutRoute.addChildren([
     indexRoute,
     ticketDetailRoute,

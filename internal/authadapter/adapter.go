@@ -84,6 +84,43 @@ func (a *Adapter) ListTenants(ctx context.Context) ([]auth.TenantResult, error) 
 	return res, nil
 }
 
-func (a *Adapter) FindOrCreateOIDCUser(ctx context.Context, tenantSlug, subject, email, role string) (*auth.UserRow, string, error) {
-	return nil, "", fmt.Errorf("OIDC user provisioning not supported in ticketowl")
+func (a *Adapter) FindOrCreateOIDCUser(ctx context.Context, tenantSlug, subject, email, displayName, role string) (*auth.UserRow, string, error) {
+	t, err := a.GetTenantBySlug(ctx, tenantSlug)
+	if err != nil {
+		return nil, "", fmt.Errorf("looking up tenant %s: %w", tenantSlug, err)
+	}
+
+	conn, err := a.pool.Acquire(ctx)
+	if err != nil {
+		return nil, "", fmt.Errorf("acquiring connection: %w", err)
+	}
+	defer conn.Release()
+
+	schema := fmt.Sprintf("tenant_%s", t.Slug)
+	if _, err := conn.Exec(ctx, fmt.Sprintf("SET search_path TO %s, public", schema)); err != nil {
+		return nil, "", fmt.Errorf("setting search_path: %w", err)
+	}
+
+	q := db.New(conn)
+	user, err := q.GetUserByExternalID(ctx, subject)
+	if err != nil {
+		user, err = q.UpsertUser(ctx, db.UpsertUserParams{
+			ExternalID:  subject,
+			Email:       email,
+			DisplayName: displayName,
+			Role:        role,
+		})
+		if err != nil {
+			return nil, "", fmt.Errorf("creating user: %w", err)
+		}
+	}
+
+	return &auth.UserRow{
+		ID:          user.ID,
+		ExternalID:  &user.ExternalID,
+		Email:       user.Email,
+		DisplayName: user.DisplayName,
+		Role:        user.Role,
+		IsActive:    user.IsActive,
+	}, t.ID.String(), nil
 }

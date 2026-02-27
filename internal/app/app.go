@@ -11,6 +11,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"golang.org/x/oauth2"
+
 	"github.com/wisbric/core/pkg/auth"
 	"github.com/wisbric/core/pkg/httpserver"
 	"github.com/wisbric/core/pkg/platform"
@@ -156,6 +158,23 @@ func runAPI(ctx context.Context, cfg *config.Config, logger *slog.Logger, metric
 	srv.Router.Post("/auth/login", loginHandler.HandleLogin)
 	srv.Router.Get("/auth/me", loginHandler.HandleMe)
 	srv.Router.Post("/auth/logout", loginHandler.HandleLogout)
+
+	// OIDC Authorization Code flow (only if OIDC is configured with a client secret).
+	if oidcAuth != nil && cfg.OIDCClientSecret != "" {
+		oauth2Cfg := &oauth2.Config{
+			ClientID:     cfg.OIDCClientID,
+			ClientSecret: cfg.OIDCClientSecret,
+			RedirectURL:  cfg.OIDCRedirectURL,
+			Endpoint:     oidcAuth.Endpoint(),
+			Scopes:       []string{"openid", "email", "profile"},
+		}
+
+		oidcFlow := auth.NewOIDCFlowHandler(oauth2Cfg, oidcAuth, sessionMgr, authStore, rdb, logger)
+		oidcFlow.SuccessURL = "/"
+		srv.Router.Get("/auth/oidc/login", oidcFlow.HandleLogin)
+		srv.Router.Get("/auth/oidc/callback", oidcFlow.HandleCallback)
+		logger.Info("OIDC Authorization Code flow enabled", "redirect_url", cfg.OIDCRedirectURL)
+	}
 
 	// Public status endpoint (no auth required — used by about page).
 	srv.Router.Get("/status", srv.HandleStatus)
