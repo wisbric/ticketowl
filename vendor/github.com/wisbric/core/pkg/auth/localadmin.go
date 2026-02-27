@@ -272,7 +272,7 @@ func (h *LocalAdminHandler) HandleAuthConfig(w http.ResponseWriter, r *http.Requ
 	oidcName := "Sign in with SSO"
 
 	if tenant != "" {
-		oidcEnabled = h.checkOIDCEnabled(r.Context(), tenant)
+		oidcEnabled = h.CheckOIDCEnabled(r.Context(), tenant)
 	}
 
 	respondJSON(w, http.StatusOK, AuthConfigResponse{
@@ -282,8 +282,8 @@ func (h *LocalAdminHandler) HandleAuthConfig(w http.ResponseWriter, r *http.Requ
 	})
 }
 
-// checkOIDCEnabled checks if OIDC is configured and enabled for a tenant.
-func (h *LocalAdminHandler) checkOIDCEnabled(ctx context.Context, tenantSlug string) bool {
+// CheckOIDCEnabled checks if OIDC is configured and enabled for a tenant.
+func (h *LocalAdminHandler) CheckOIDCEnabled(ctx context.Context, tenantSlug string) bool {
 	config, err := h.store.GetOIDCConfig(ctx, tenantSlug)
 	if err != nil {
 		return false

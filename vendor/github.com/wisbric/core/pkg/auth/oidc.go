@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"golang.org/x/oauth2"
 )
 
 // OIDCClaims are the JWT claims we extract for authentication.
@@ -20,6 +21,7 @@ type OIDCClaims struct {
 // OIDCAuthenticator validates OIDC JWTs and extracts claims.
 type OIDCAuthenticator struct {
 	Verifier *oidc.IDTokenVerifier
+	provider *oidc.Provider
 }
 
 // NewOIDCAuthenticator creates an authenticator by performing OIDC discovery
@@ -33,7 +35,12 @@ func NewOIDCAuthenticator(ctx context.Context, issuerURL, clientID string) (*OID
 
 	verifier := provider.Verifier(&oidc.Config{ClientID: clientID})
 
-	return &OIDCAuthenticator{Verifier: verifier}, nil
+	return &OIDCAuthenticator{Verifier: verifier, provider: provider}, nil
+}
+
+// Endpoint returns the OAuth2 endpoint discovered from the OIDC provider.
+func (a *OIDCAuthenticator) Endpoint() oauth2.Endpoint {
+	return a.provider.Endpoint()
 }
 
 // Authenticate validates a Bearer token and returns the extracted claims.
