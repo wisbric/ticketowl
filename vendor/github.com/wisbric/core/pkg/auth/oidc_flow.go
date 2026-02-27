@@ -21,6 +21,10 @@ type OIDCFlowHandler struct {
 	store      Storage
 	redis      *redis.Client
 	logger     *slog.Logger
+
+	// SuccessURL is where the browser is redirected after successful authentication.
+	// Defaults to "/" if empty.
+	SuccessURL string
 }
 
 // NewOIDCFlowHandler creates a handler for the full OIDC Authorization Code flow.
@@ -43,6 +47,8 @@ func NewOIDCFlowHandler(
 }
 
 // HandleLogin redirects the user to the OIDC identity provider.
+// It accepts an optional ?tenant= query parameter. If not provided, it
+// defaults to the first tenant in the database (single-tenant convenience).
 func (h *OIDCFlowHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	state, err := randomState()
 	if err != nil {
@@ -50,8 +56,20 @@ func (h *OIDCFlowHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Store state in Redis with 10 minute TTL.
-	if err := h.redis.Set(r.Context(), "oidc_state:"+state, "1", 10*time.Minute).Err(); err != nil {
+	// Resolve tenant from query param or default to first tenant.
+	tenantSlug := r.URL.Query().Get("tenant")
+	if tenantSlug == "" {
+		tenants, listErr := h.store.ListTenants(r.Context())
+		if listErr != nil || len(tenants) == 0 {
+			h.logger.Error("oidc: no tenants available for OIDC login", "error", listErr)
+			respondErr(w, http.StatusInternalServerError, "internal", "no tenants configured")
+			return
+		}
+		tenantSlug = tenants[0].Slug
+	}
+
+	// Store state → tenant mapping in Redis with 10 minute TTL.
+	if err := h.redis.Set(r.Context(), "oidc_state:"+state, tenantSlug, 10*time.Minute).Err(); err != nil {
 		h.logger.Error("oidc: storing state in redis", "error", err)
 		respondErr(w, http.StatusInternalServerError, "internal", "failed to store state")
 		return
@@ -65,15 +83,15 @@ func (h *OIDCFlowHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 func (h *OIDCFlowHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// Verify state.
+	// Verify state and retrieve the tenant slug stored during login.
 	state := r.URL.Query().Get("state")
 	if state == "" {
 		respondErr(w, http.StatusBadRequest, "bad_request", "missing state parameter")
 		return
 	}
 
-	result, err := h.redis.GetDel(ctx, "oidc_state:"+state).Result()
-	if err != nil || result == "" {
+	tenantSlug, err := h.redis.GetDel(ctx, "oidc_state:"+state).Result()
+	if err != nil || tenantSlug == "" {
 		respondErr(w, http.StatusBadRequest, "bad_request", "invalid or expired state")
 		return
 	}
@@ -100,31 +118,35 @@ func (h *OIDCFlowHandler) HandleCallback(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Extract and verify the ID token.
+	// Extract and verify the ID token (without requiring tenant_slug claim).
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
 		respondErr(w, http.StatusUnauthorized, "unauthorized", "no id_token in response")
 		return
 	}
 
-	claims, err := h.oidcAuth.Authenticate(ctx, "Bearer "+rawIDToken)
+	claims, err := h.oidcAuth.AuthenticateCallbackToken(ctx, rawIDToken)
 	if err != nil {
 		h.logger.Error("oidc: token verification failed", "error", err)
 		respondErr(w, http.StatusUnauthorized, "unauthorized", "invalid id_token")
 		return
 	}
 
+	// Set tenant from the OAuth state (not from the token).
+	claims.TenantSlug = tenantSlug
+
 	// Look up or create the user in the tenant schema.
 	userRow, tenantID, err := h.findOrCreateUser(ctx, claims)
 	if err != nil {
-		h.logger.Error("oidc: user lookup/create failed", "error", err)
+		h.logger.Error("oidc: user lookup/create failed", "error", err, "tenant", tenantSlug)
 		respondErr(w, http.StatusInternalServerError, "internal", "failed to resolve user")
 		return
 	}
 
-	// Issue session JWT.
+	// Issue session JWT — use the DB display name (resolved from OIDC claims
+	// by the adapter), not the raw subject UUID.
 	sessClaims := SessionClaims{
-		Subject:    claims.Subject,
+		Subject:    userRow.DisplayName,
 		Email:      claims.Email,
 		Role:       claims.Role,
 		TenantSlug: claims.TenantSlug,
@@ -140,13 +162,17 @@ func (h *OIDCFlowHandler) HandleCallback(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Redirect to frontend (token is stored in HttpOnly cookie).
-	http.Redirect(w, r, h.oauth2Cfg.RedirectURL, http.StatusFound)
+	// Redirect to frontend.
+	successURL := h.SuccessURL
+	if successURL == "" {
+		successURL = "/"
+	}
+	http.Redirect(w, r, successURL, http.StatusFound)
 }
 
 // findOrCreateUser resolves an OIDC user to a database user row.
 func (h *OIDCFlowHandler) findOrCreateUser(ctx context.Context, claims *OIDCClaims) (*UserRow, string, error) {
-	return h.store.FindOrCreateOIDCUser(ctx, claims.TenantSlug, claims.Subject, claims.Email, claims.Role)
+	return h.store.FindOrCreateOIDCUser(ctx, claims.TenantSlug, claims.Subject, claims.Email, claims.DisplayName(), claims.Role)
 }
 
 func randomState() (string, error) {

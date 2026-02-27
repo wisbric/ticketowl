@@ -64,7 +64,7 @@ type Storage interface {
 	UpdatePATLastUsed(ctx context.Context, prefix string) error
 
 	// OIDC Users
-	FindOrCreateOIDCUser(ctx context.Context, tenantSlug, subject, email, role string) (*UserRow, string, error)
+	FindOrCreateOIDCUser(ctx context.Context, tenantSlug, subject, email, displayName, role string) (*UserRow, string, error)
 
 	// Dev Mode
 	GetDevAdminUser(ctx context.Context, tenantSlug string) (uuid.UUID, string, string, error)

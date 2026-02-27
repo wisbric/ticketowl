@@ -11,11 +11,28 @@ import (
 
 // OIDCClaims are the JWT claims we extract for authentication.
 type OIDCClaims struct {
-	Subject    string `json:"sub"`
-	Email      string `json:"email"`
-	TenantSlug string `json:"tenant_slug"`
-	Role       string `json:"role"`
-	OrgID      string `json:"org_id"`
+	Subject           string `json:"sub"`
+	Email             string `json:"email"`
+	Name              string `json:"name"`
+	PreferredUsername string `json:"preferred_username"`
+	TenantSlug        string `json:"tenant_slug"`
+	Role              string `json:"role"`
+	OrgID             string `json:"org_id"`
+}
+
+// DisplayName returns the best available display name from the OIDC claims,
+// preferring the full name, then preferred_username, then email, then subject.
+func (c *OIDCClaims) DisplayName() string {
+	if c.Name != "" {
+		return c.Name
+	}
+	if c.PreferredUsername != "" {
+		return c.PreferredUsername
+	}
+	if c.Email != "" {
+		return c.Email
+	}
+	return c.Subject
 }
 
 // OIDCAuthenticator validates OIDC JWTs and extracts claims.
@@ -44,6 +61,7 @@ func (a *OIDCAuthenticator) Endpoint() oauth2.Endpoint {
 }
 
 // Authenticate validates a Bearer token and returns the extracted claims.
+// It requires the tenant_slug claim for service-to-service API authentication.
 func (a *OIDCAuthenticator) Authenticate(ctx context.Context, bearerToken string) (*OIDCClaims, error) {
 	token := strings.TrimPrefix(bearerToken, "Bearer ")
 	token = strings.TrimPrefix(token, "bearer ")
@@ -68,6 +86,33 @@ func (a *OIDCAuthenticator) Authenticate(ctx context.Context, bearerToken string
 	}
 	if claims.TenantSlug == "" {
 		return nil, fmt.Errorf("token missing tenant_slug claim")
+	}
+	if claims.Role == "" {
+		claims.Role = RoleEngineer
+	}
+	if !IsValidRole(claims.Role) {
+		claims.Role = RoleEngineer
+	}
+
+	return &claims, nil
+}
+
+// AuthenticateCallbackToken validates an OIDC ID token from the Authorization
+// Code flow. Unlike Authenticate, it does not require the tenant_slug claim
+// because the tenant is resolved from the OAuth state parameter.
+func (a *OIDCAuthenticator) AuthenticateCallbackToken(ctx context.Context, rawToken string) (*OIDCClaims, error) {
+	idToken, err := a.Verifier.Verify(ctx, rawToken)
+	if err != nil {
+		return nil, fmt.Errorf("verifying token: %w", err)
+	}
+
+	var claims OIDCClaims
+	if err := idToken.Claims(&claims); err != nil {
+		return nil, fmt.Errorf("extracting claims: %w", err)
+	}
+
+	if claims.Subject == "" {
+		return nil, fmt.Errorf("token missing sub claim")
 	}
 	if claims.Role == "" {
 		claims.Role = RoleEngineer
