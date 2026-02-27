@@ -36,7 +36,7 @@ spec:
           image: {{ include "ticketowl.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
-            - name: TICKETOWL_MODE
+            - name: APP_MODE
               value: api
             {{- include "ticketowl.commonEnv" . | nindent 12 }}
           ports:

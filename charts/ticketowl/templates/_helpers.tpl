@@ -80,31 +80,36 @@ Common environment variables shared by api and worker deployments.
 Avoids duplicating the full env block in both deployment templates.
 */}}
 {{- define "ticketowl.commonEnv" -}}
-- name: TICKETOWL_DB_URL
+- name: DATABASE_URL
   valueFrom:
     secretKeyRef:
       name: {{ include "ticketowl.secretName" . }}
-      key: TICKETOWL_DB_URL
-- name: TICKETOWL_REDIS_URL
+      key: DATABASE_URL
+- name: REDIS_URL
   valueFrom:
     secretKeyRef:
       name: {{ include "ticketowl.secretName" . }}
-      key: TICKETOWL_REDIS_URL
-- name: TICKETOWL_OIDC_ISSUER
+      key: REDIS_URL
+- name: OIDC_ISSUER
   valueFrom:
     secretKeyRef:
       name: {{ include "ticketowl.secretName" . }}
-      key: TICKETOWL_OIDC_ISSUER
-- name: TICKETOWL_OIDC_CLIENT_ID
+      key: OIDC_ISSUER
+- name: OIDC_CLIENT_ID
   valueFrom:
     secretKeyRef:
       name: {{ include "ticketowl.secretName" . }}
-      key: TICKETOWL_OIDC_CLIENT_ID
+      key: OIDC_CLIENT_ID
 - name: TICKETOWL_ENCRYPTION_KEY
   valueFrom:
     secretKeyRef:
       name: {{ include "ticketowl.secretName" . }}
       key: TICKETOWL_ENCRYPTION_KEY
+- name: TICKETOWL_SESSION_SECRET
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "ticketowl.secretName" . }}
+      key: TICKETOWL_SESSION_SECRET
 - name: TICKETOWL_NIGHTOWL_API_KEY
   valueFrom:
     secretKeyRef:
@@ -115,21 +120,31 @@ Avoids duplicating the full env block in both deployment templates.
     secretKeyRef:
       name: {{ include "ticketowl.secretName" . }}
       key: TICKETOWL_BOOKOWL_API_KEY
-- name: TICKETOWL_LOG_LEVEL
+- name: LOG_LEVEL
   valueFrom:
     configMapKeyRef:
       name: {{ include "ticketowl.fullname" . }}
-      key: TICKETOWL_LOG_LEVEL
-- name: TICKETOWL_LOG_FORMAT
+      key: LOG_LEVEL
+- name: LOG_FORMAT
   valueFrom:
     configMapKeyRef:
       name: {{ include "ticketowl.fullname" . }}
-      key: TICKETOWL_LOG_FORMAT
-- name: TICKETOWL_PORT
+      key: LOG_FORMAT
+- name: APP_PORT
   valueFrom:
     configMapKeyRef:
       name: {{ include "ticketowl.fullname" . }}
-      key: TICKETOWL_PORT
+      key: APP_PORT
+- name: MIGRATIONS_GLOBAL_DIR
+  valueFrom:
+    configMapKeyRef:
+      name: {{ include "ticketowl.fullname" . }}
+      key: MIGRATIONS_GLOBAL_DIR
+- name: MIGRATIONS_TENANT_DIR
+  valueFrom:
+    configMapKeyRef:
+      name: {{ include "ticketowl.fullname" . }}
+      key: MIGRATIONS_TENANT_DIR
 - name: TICKETOWL_WORKER_POLL_SECONDS
   valueFrom:
     configMapKeyRef:

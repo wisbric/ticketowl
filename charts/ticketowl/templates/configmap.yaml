@@ -5,9 +5,11 @@ metadata:
   labels:
     {{- include "ticketowl.labels" . | nindent 4 }}
 data:
-  TICKETOWL_LOG_LEVEL: {{ .Values.config.logLevel | quote }}
-  TICKETOWL_LOG_FORMAT: {{ .Values.config.logFormat | quote }}
-  TICKETOWL_PORT: {{ .Values.config.port | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  LOG_FORMAT: {{ .Values.config.logFormat | quote }}
+  APP_PORT: {{ .Values.config.port | quote }}
+  MIGRATIONS_GLOBAL_DIR: "/migrations/global"
+  MIGRATIONS_TENANT_DIR: "/migrations/tenant"
   TICKETOWL_WORKER_POLL_SECONDS: {{ .Values.config.workerPollSeconds | quote }}
   {{- if .Values.config.nightowlApiUrl }}
   TICKETOWL_NIGHTOWL_API_URL: {{ .Values.config.nightowlApiUrl | quote }}
