@@ -1,5 +1,5 @@
-import { type ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { type ReactNode, useEffect } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Moon, Sun, LogOut } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/contexts/auth-context";
@@ -10,8 +10,27 @@ interface PortalLayoutProps {
 
 export function PortalLayout({ children }: PortalLayoutProps) {
   const { theme, toggle } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const showLogout = !import.meta.env.DEV;
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated && !import.meta.env.DEV) {
+      navigate({ to: "/login" });
+    }
+  }, [isLoading, isAuthenticated, navigate]);
+
+  if (isLoading && !import.meta.env.DEV) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated && !import.meta.env.DEV) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
