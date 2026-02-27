@@ -41,6 +41,15 @@ spec:
               port: http
             initialDelaySeconds: 3
             periodSeconds: 5
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+              readOnly: true
           resources:
             {{- toYaml .Values.web.resources | nindent 12 }}
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: {{ include "ticketowl.fullname" . }}-web
 {{- end }}
