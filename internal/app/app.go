@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -13,13 +14,18 @@ import (
 	"github.com/wisbric/core/pkg/auth"
 	"github.com/wisbric/core/pkg/httpserver"
 	"github.com/wisbric/core/pkg/platform"
+	"github.com/wisbric/core/pkg/tenant"
 	coretelemetry "github.com/wisbric/core/pkg/telemetry"
 	"github.com/wisbric/core/pkg/version"
 
 	"github.com/wisbric/ticketowl/internal/authadapter"
 	"github.com/wisbric/ticketowl/internal/config"
+	"github.com/wisbric/ticketowl/internal/db"
+	"github.com/wisbric/ticketowl/internal/nightowl"
+	"github.com/wisbric/ticketowl/internal/notification"
 	"github.com/wisbric/ticketowl/internal/seed"
 	ticketowlmetrics "github.com/wisbric/ticketowl/internal/telemetry"
+	"github.com/wisbric/ticketowl/internal/worker"
 )
 
 // Run is the main application entry point. It reads config, connects to
@@ -187,9 +193,71 @@ func runAPI(ctx context.Context, cfg *config.Config, logger *slog.Logger, metric
 	}
 }
 
-func runWorker(ctx context.Context, _ *config.Config, logger *slog.Logger) error {
-	logger.Info("worker mode not yet implemented")
+func runWorker(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
+	// Database
+	pool, err := platform.NewPostgresPool(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return fmt.Errorf("connecting to database: %w", err)
+	}
+	defer pool.Close()
+
+	// Redis
+	rdb, err := platform.NewRedisClient(ctx, cfg.RedisURL)
+	if err != nil {
+		return fmt.Errorf("connecting to redis: %w", err)
+	}
+	defer func() {
+		if err := rdb.Close(); err != nil {
+			logger.Error("closing redis", "error", err)
+		}
+	}()
+
+	// NightOwl client for SLA breach alerts.
+	noClient := nightowl.New(cfg.NightOwlAPIURL, cfg.NightOwlAPIKey, nightowl.WithLogger(logger))
+	notifier := notification.NewService(noClient, logger)
+
+	// List all active tenants.
+	q := db.New(pool)
+	tenants, err := q.ListTenants(ctx)
+	if err != nil {
+		return fmt.Errorf("listing tenants: %w", err)
+	}
+
+	if len(tenants) == 0 {
+		logger.Warn("no tenants found, worker idle")
+		<-ctx.Done()
+		return nil
+	}
+
+	// Launch a Worker per tenant (SLA poller + event processor).
+	var wg sync.WaitGroup
+	for _, t := range tenants {
+		if t.Suspended {
+			logger.Info("skipping suspended tenant", "slug", t.Slug)
+			continue
+		}
+
+		schema := tenant.SchemaName(t.Slug)
+		store := worker.NewPollerStore(pool, schema)
+		eventHandler := worker.NewDefaultEventHandler(logger.With("tenant", t.Slug))
+
+		w := worker.New(rdb, store, notifier, eventHandler, worker.Config{
+			PollIntervalSeconds: cfg.WorkerPollSeconds,
+			TenantSlug:          t.Slug,
+		}, logger.With("tenant", t.Slug))
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = w.Run(ctx)
+		}()
+
+		logger.Info("worker started for tenant", "slug", t.Slug)
+	}
+
 	<-ctx.Done()
+	logger.Info("worker shutting down, waiting for tenant workers")
+	wg.Wait()
 	return nil
 }
 
