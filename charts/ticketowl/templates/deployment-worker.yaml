@@ -38,19 +38,16 @@ spec:
             - name: APP_MODE
               value: worker
             {{- include "ticketowl.commonEnv" . | nindent 12 }}
-          ports:
-            - name: health
-              containerPort: 9090
-              protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: health
-            initialDelaySeconds: 10
-            periodSeconds: 30
-            timeoutSeconds: 3
           resources:
             {{- toYaml .Values.worker.resources | nindent 12 }}
+          {{- with .Values.extraVolumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.extraVolumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.worker.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

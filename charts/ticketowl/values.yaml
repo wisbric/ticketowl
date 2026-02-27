@@ -49,6 +49,26 @@ worker:
   tolerations: []
   affinity: {}
 
+# -- Frontend (nginx + React SPA)
+web:
+  enabled: false
+  image:
+    repository: ghcr.io/wisbric/ticketowl-web
+    pullPolicy: IfNotPresent
+    tag: ""  # defaults to Chart.AppVersion
+  replicas: 2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# -- Extra volumes to mount (e.g. CA certificates)
+extraVolumes: []
+extraVolumeMounts: []
+
 # -- Application configuration (non-secret env vars)
 config:
   logLevel: info

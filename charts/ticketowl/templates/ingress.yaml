@@ -33,9 +33,15 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
+                {{- if eq (.service | default "api") "web" }}
+                name: {{ include "ticketowl.fullname" $ }}-web
+                port:
+                  number: 80
+                {{- else }}
                 name: {{ include "ticketowl.fullname" $ }}
                 port:
                   number: {{ $.Values.service.port }}
+                {{- end }}
           {{- end }}
     {{- end }}
 {{- end }}

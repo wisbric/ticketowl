@@ -11,7 +11,32 @@ import (
 
 	"github.com/wisbric/core/pkg/auth"
 	"github.com/wisbric/core/pkg/tenant"
+
+	"github.com/wisbric/ticketowl/internal/db"
 )
+
+// globalStore implements tenant.TenantStore using TicketOwl's sqlc queries,
+// which correctly reference global.tenants instead of public.tenants.
+type globalStore struct {
+	pool *pgxpool.Pool
+}
+
+func (s *globalStore) CreateTenant(ctx context.Context, name, slug string) (uuid.UUID, error) {
+	q := db.New(s.pool)
+	t, err := q.CreateTenant(ctx, db.CreateTenantParams{
+		Slug: slug,
+		Name: name,
+	})
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return t.ID, nil
+}
+
+func (s *globalStore) DeleteTenant(ctx context.Context, id uuid.UUID) error {
+	q := db.New(s.pool)
+	return q.DeleteTenant(ctx, id)
+}
 
 // DevAPIKey is the development API key (never use in production).
 const DevAPIKey = "to_dev_seed_key_do_not_use_in_production"
@@ -35,9 +60,11 @@ func Run(ctx context.Context, db *pgxpool.Pool, databaseURL, migrationsDir strin
 		return nil
 	}
 
-	// Provision the tenant.
+	// Provision the tenant. Use globalStore to ensure queries target
+	// global.tenants (TicketOwl uses the "global" schema, not "public").
 	prov := &tenant.Provisioner{
 		DB:            db,
+		Store:         &globalStore{pool: db},
 		DatabaseURL:   databaseURL,
 		MigrationsDir: migrationsDir,
 		Logger:        logger,

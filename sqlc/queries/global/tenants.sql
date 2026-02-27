@@ -28,6 +28,10 @@ INSERT INTO global.api_keys (tenant_id, key_hash, description)
 VALUES ($1, $2, $3)
 RETURNING id, tenant_id, key_hash, description, created_at, last_used_at;
 
+-- name: DeleteTenant :exec
+DELETE FROM global.tenants
+WHERE id = $1;
+
 -- name: UpdateAPIKeyLastUsed :exec
 UPDATE global.api_keys
 SET last_used_at = now()

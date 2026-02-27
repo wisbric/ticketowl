@@ -76,6 +76,22 @@ Image reference
 {{- end }}
 
 {{/*
+Web selector labels.
+*/}}
+{{- define "ticketowl.webSelectorLabels" -}}
+{{ include "ticketowl.selectorLabels" . }}
+app.kubernetes.io/component: web
+{{- end }}
+
+{{/*
+Web image reference.
+*/}}
+{{- define "ticketowl.webImage" -}}
+{{- $tag := default .Chart.AppVersion .Values.web.image.tag -}}
+{{- printf "%s:%s" .Values.web.image.repository $tag }}
+{{- end }}
+
+{{/*
 Common environment variables shared by api and worker deployments.
 Avoids duplicating the full env block in both deployment templates.
 */}}
