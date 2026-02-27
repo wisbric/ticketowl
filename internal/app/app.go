@@ -14,8 +14,8 @@ import (
 	"github.com/wisbric/core/pkg/auth"
 	"github.com/wisbric/core/pkg/httpserver"
 	"github.com/wisbric/core/pkg/platform"
-	"github.com/wisbric/core/pkg/tenant"
 	coretelemetry "github.com/wisbric/core/pkg/telemetry"
+	"github.com/wisbric/core/pkg/tenant"
 	"github.com/wisbric/core/pkg/version"
 
 	"github.com/wisbric/ticketowl/internal/authadapter"
