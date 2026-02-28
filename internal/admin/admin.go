@@ -107,6 +107,31 @@ type UpdateAutoTicketRuleRequest struct {
 	TitleTemplate   *string `json:"title_template,omitempty"`
 }
 
+// GroupRosterMapping maps a Zammad group to a NightOwl roster for on-call auto-assignment.
+type GroupRosterMapping struct {
+	ID                  uuid.UUID `json:"id"`
+	ZammadGroup         string    `json:"zammad_group"`
+	RosterID            string    `json:"roster_id"`
+	AutoAssign          bool      `json:"auto_assign"`
+	EscalateToSecondary bool      `json:"escalate_to_secondary"`
+	CreatedAt           time.Time `json:"created_at"`
+}
+
+// CreateGroupRosterMappingRequest is the payload for creating a group-roster mapping.
+type CreateGroupRosterMappingRequest struct {
+	ZammadGroup         string `json:"zammad_group"`
+	RosterID            string `json:"roster_id"`
+	AutoAssign          *bool  `json:"auto_assign,omitempty"`
+	EscalateToSecondary *bool  `json:"escalate_to_secondary,omitempty"`
+}
+
+// UpdateGroupRosterMappingRequest is the payload for updating a group-roster mapping.
+type UpdateGroupRosterMappingRequest struct {
+	RosterID            *string `json:"roster_id,omitempty"`
+	AutoAssign          *bool   `json:"auto_assign,omitempty"`
+	EscalateToSecondary *bool   `json:"escalate_to_secondary,omitempty"`
+}
+
 // ConfigOverview is the combined configuration returned by GET /admin/config.
 type ConfigOverview struct {
 	Zammad   *ZammadConfigSummary   `json:"zammad,omitempty"`
@@ -141,4 +166,9 @@ type AdminStore interface {
 	CreateAutoTicketRule(ctx context.Context, req CreateAutoTicketRuleRequest) (*AutoTicketRule, error)
 	UpdateAutoTicketRule(ctx context.Context, id uuid.UUID, req UpdateAutoTicketRuleRequest) (*AutoTicketRule, error)
 	DeleteAutoTicketRule(ctx context.Context, id uuid.UUID) error
+	ListGroupRosterMappings(ctx context.Context) ([]GroupRosterMapping, error)
+	CreateGroupRosterMapping(ctx context.Context, req CreateGroupRosterMappingRequest) (*GroupRosterMapping, error)
+	UpdateGroupRosterMapping(ctx context.Context, id uuid.UUID, req UpdateGroupRosterMappingRequest) (*GroupRosterMapping, error)
+	DeleteGroupRosterMapping(ctx context.Context, id uuid.UUID) error
+	GetGroupRosterMappingByZammadGroup(ctx context.Context, zammadGroup string) (*GroupRosterMapping, error)
 }

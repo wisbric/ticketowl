@@ -17,6 +17,12 @@ data:
   {{- if .Values.config.bookowlApiUrl }}
   TICKETOWL_BOOKOWL_API_URL: {{ .Values.config.bookowlApiUrl | quote }}
   {{- end }}
+  {{- if .Values.config.nightowlUrl }}
+  TICKETOWL_NIGHTOWL_URL: {{ .Values.config.nightowlUrl | quote }}
+  {{- end }}
+  {{- if .Values.config.bookowlUrl }}
+  TICKETOWL_BOOKOWL_URL: {{ .Values.config.bookowlUrl | quote }}
+  {{- end }}
   {{- if .Values.config.otelEndpoint }}
   TICKETOWL_OTEL_ENDPOINT: {{ .Values.config.otelEndpoint | quote }}
   {{- end }}

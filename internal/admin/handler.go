@@ -67,6 +67,14 @@ func (h *Handler) Routes() chi.Router {
 		r.Delete("/", h.handleDeleteRule)
 	})
 
+	// Group-roster mappings
+	r.Get("/group-roster-mappings", h.handleListGroupRosterMappings)
+	r.Post("/group-roster-mappings", h.handleCreateGroupRosterMapping)
+	r.Route("/group-roster-mappings/{id}", func(r chi.Router) {
+		r.Put("/", h.handleUpdateGroupRosterMapping)
+		r.Delete("/", h.handleDeleteGroupRosterMapping)
+	})
+
 	return r
 }
 
@@ -384,6 +392,90 @@ func (h *Handler) handleDeleteRule(w http.ResponseWriter, r *http.Request) {
 		}
 		h.logger.Error("deleting auto-ticket rule", "error", err, "id", id)
 		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to delete rule")
+		return
+	}
+	httpserver.Respond(w, http.StatusNoContent, nil)
+}
+
+// --- Group-Roster Mappings ---
+
+func (h *Handler) handleListGroupRosterMappings(w http.ResponseWriter, r *http.Request) {
+	s := h.store(r)
+	mappings, err := s.ListGroupRosterMappings(r.Context())
+	if err != nil {
+		h.logger.Error("listing group-roster mappings", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to list mappings")
+		return
+	}
+	if mappings == nil {
+		mappings = []GroupRosterMapping{}
+	}
+	httpserver.Respond(w, http.StatusOK, mappings)
+}
+
+func (h *Handler) handleCreateGroupRosterMapping(w http.ResponseWriter, r *http.Request) {
+	var req CreateGroupRosterMappingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpserver.RespondError(w, http.StatusBadRequest, "bad_request", "invalid request body")
+		return
+	}
+	if req.ZammadGroup == "" || req.RosterID == "" {
+		httpserver.RespondError(w, http.StatusBadRequest, "bad_request", "zammad_group and roster_id are required")
+		return
+	}
+
+	s := h.store(r)
+	mapping, err := s.CreateGroupRosterMapping(r.Context(), req)
+	if err != nil {
+		h.logger.Error("creating group-roster mapping", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to create mapping")
+		return
+	}
+	httpserver.Respond(w, http.StatusCreated, mapping)
+}
+
+func (h *Handler) handleUpdateGroupRosterMapping(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		httpserver.RespondError(w, http.StatusBadRequest, "bad_request", "invalid mapping ID")
+		return
+	}
+
+	var req UpdateGroupRosterMappingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpserver.RespondError(w, http.StatusBadRequest, "bad_request", "invalid request body")
+		return
+	}
+
+	s := h.store(r)
+	mapping, err := s.UpdateGroupRosterMapping(r.Context(), id, req)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			httpserver.RespondError(w, http.StatusNotFound, "not_found", "mapping not found")
+			return
+		}
+		h.logger.Error("updating group-roster mapping", "error", err, "id", id)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to update mapping")
+		return
+	}
+	httpserver.Respond(w, http.StatusOK, mapping)
+}
+
+func (h *Handler) handleDeleteGroupRosterMapping(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		httpserver.RespondError(w, http.StatusBadRequest, "bad_request", "invalid mapping ID")
+		return
+	}
+
+	s := h.store(r)
+	if err := s.DeleteGroupRosterMapping(r.Context(), id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			httpserver.RespondError(w, http.StatusNotFound, "not_found", "mapping not found")
+			return
+		}
+		h.logger.Error("deleting group-roster mapping", "error", err, "id", id)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to delete mapping")
 		return
 	}
 	httpserver.Respond(w, http.StatusNoContent, nil)

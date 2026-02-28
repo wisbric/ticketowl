@@ -19,6 +19,10 @@ type Config struct {
 	BookOwlAPIURL string `env:"TICKETOWL_BOOKOWL_API_URL"`
 	BookOwlAPIKey string `env:"TICKETOWL_BOOKOWL_API_KEY"`
 
+	// Cross-service links (public URLs for sidebar navigation)
+	NightOwlURL string `env:"TICKETOWL_NIGHTOWL_URL"`
+	BookOwlURL  string `env:"TICKETOWL_BOOKOWL_URL"`
+
 	// Worker
 	WorkerPollSeconds int `env:"TICKETOWL_WORKER_POLL_SECONDS" envDefault:"60"`
 

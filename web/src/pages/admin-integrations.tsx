@@ -11,10 +11,12 @@ function IntegrationForm({
   service,
   label,
   currentUrl,
+  placeholder,
 }: {
   service: "nightowl" | "bookowl";
   label: string;
   currentUrl?: string;
+  placeholder?: string;
 }) {
   const queryClient = useQueryClient();
   const [apiUrl, setApiUrl] = useState(currentUrl ?? "");
@@ -51,7 +53,7 @@ function IntegrationForm({
             <Input
               value={apiUrl}
               onChange={(e) => setApiUrl(e.target.value)}
-              placeholder={`https://${service}.example.com`}
+              placeholder={placeholder || `https://${service}.example.com`}
               required
             />
           </div>
@@ -92,6 +94,16 @@ export function AdminIntegrationsPage() {
     queryFn: () => api.get<ConfigOverview>("/admin/config"),
   });
 
+  const { data: authConfig } = useQuery({
+    queryKey: ["auth-config"],
+    queryFn: async () => {
+      const res = await fetch("/auth/config");
+      if (!res.ok) return {};
+      return res.json();
+    },
+    staleTime: Infinity,
+  });
+
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-6 text-2xl font-bold">Integrations</h1>
@@ -101,11 +113,13 @@ export function AdminIntegrationsPage() {
           service="nightowl"
           label="NightOwl"
           currentUrl={config?.nightowl?.api_url}
+          placeholder={authConfig?.nightowl_api_url || "http://owl-nightowl-api:8080"}
         />
         <IntegrationForm
           service="bookowl"
           label="BookOwl"
           currentUrl={config?.bookowl?.api_url}
+          placeholder={authConfig?.bookowl_api_url || "http://owl-bookowl-api:8081"}
         />
       </div>
     </div>

@@ -22,12 +22,14 @@ import (
 	"github.com/wisbric/core/pkg/tenant"
 	"github.com/wisbric/core/pkg/version"
 
+	"github.com/wisbric/ticketowl/internal/admin"
 	"github.com/wisbric/ticketowl/internal/authadapter"
 	"github.com/wisbric/ticketowl/internal/config"
 	"github.com/wisbric/ticketowl/internal/db"
 	"github.com/wisbric/ticketowl/internal/nightowl"
 	"github.com/wisbric/ticketowl/internal/notification"
 	"github.com/wisbric/ticketowl/internal/seed"
+	"github.com/wisbric/ticketowl/internal/sla"
 	ticketowlmetrics "github.com/wisbric/ticketowl/internal/telemetry"
 	"github.com/wisbric/ticketowl/internal/worker"
 )
@@ -154,7 +156,32 @@ func runAPI(ctx context.Context, cfg *config.Config, logger *slog.Logger, metric
 	localAdminHandler := auth.NewLocalAdminHandler(sessionMgr, authStore, logger, rateLimiter)
 	srv.Router.Post("/auth/local", localAdminHandler.HandleLocalLogin)
 	srv.Router.Post("/auth/change-password", localAdminHandler.HandleChangePassword)
-	srv.Router.Get("/auth/config", localAdminHandler.HandleAuthConfig)
+	srv.Router.Get("/auth/config", func(w http.ResponseWriter, r *http.Request) {
+		oidcEnabled := oidcAuth != nil
+		if !oidcEnabled {
+			if t := r.URL.Query().Get("tenant"); t != "" {
+				oidcEnabled = localAdminHandler.CheckOIDCEnabled(r.Context(), t)
+			}
+		}
+		resp := map[string]any{
+			"oidc_enabled":  oidcEnabled,
+			"oidc_name":     "Sign in with SSO",
+			"local_enabled": true,
+		}
+		if cfg.NightOwlURL != "" {
+			resp["nightowl_url"] = cfg.NightOwlURL
+		}
+		if cfg.BookOwlURL != "" {
+			resp["bookowl_url"] = cfg.BookOwlURL
+		}
+		if cfg.NightOwlAPIURL != "" {
+			resp["nightowl_api_url"] = cfg.NightOwlAPIURL
+		}
+		if cfg.BookOwlAPIURL != "" {
+			resp["bookowl_api_url"] = cfg.BookOwlAPIURL
+		}
+		httpserver.Respond(w, http.StatusOK, resp)
+	})
 
 	// Login handler (session info + logout).
 	loginHandler := auth.NewLoginHandler(sessionMgr, authStore, logger, oidcAuth != nil, rateLimiter)
@@ -185,7 +212,13 @@ func runAPI(ctx context.Context, cfg *config.Config, logger *slog.Logger, metric
 	// Authenticated status endpoint (backward compat).
 	srv.APIRouter.Get("/status", srv.HandleStatus)
 
-	// Domain handlers will be mounted here in later phases.
+	// Admin routes (authenticated, tenant-scoped).
+	adminHandler := admin.NewHandler(logger)
+	srv.APIRouter.Mount("/admin", adminHandler.Routes())
+
+	// SLA policy routes (authenticated, tenant-scoped).
+	slaHandler := sla.NewHandler(logger)
+	srv.APIRouter.Mount("/admin/sla-policies", slaHandler.PolicyRoutes())
 
 	httpSrv := &http.Server{
 		Addr:         cfg.ListenAddr(),
@@ -261,7 +294,7 @@ func runWorker(ctx context.Context, cfg *config.Config, logger *slog.Logger) err
 
 		schema := tenant.SchemaName(t.Slug)
 		store := worker.NewPollerStore(pool, schema)
-		eventHandler := worker.NewDefaultEventHandler(logger.With("tenant", t.Slug))
+		eventHandler := worker.NewDefaultEventHandler(pool, schema, logger.With("tenant", t.Slug))
 
 		w := worker.New(rdb, store, notifier, eventHandler, worker.Config{
 			PollIntervalSeconds: cfg.WorkerPollSeconds,

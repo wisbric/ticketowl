@@ -43,6 +43,14 @@ func (s *Store) Upsert(ctx context.Context, zammadID int, zammadNumber string, s
 	return scanMeta(row)
 }
 
+// GetByID returns the metadata for a ticket by its internal UUID.
+func (s *Store) GetByID(ctx context.Context, id uuid.UUID) (*Meta, error) {
+	row := s.dbtx.QueryRow(ctx,
+		`SELECT id, zammad_id, zammad_number, sla_policy_id, created_at, updated_at
+		 FROM ticket_meta WHERE id = $1`, id)
+	return scanMeta(row)
+}
+
 // ListByZammadIDs returns metadata for multiple Zammad tickets.
 func (s *Store) ListByZammadIDs(ctx context.Context, zammadIDs []int) ([]Meta, error) {
 	rows, err := s.dbtx.Query(ctx,

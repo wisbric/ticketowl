@@ -68,6 +68,51 @@ func (s *PollerStore) ListBreachedTickets(ctx context.Context, now time.Time) ([
 	return states, rows.Err()
 }
 
+// ListActiveStates returns non-paused, non-breached SLA states along with their
+// policy parameters for warning threshold computation.
+func (s *PollerStore) ListActiveStates(ctx context.Context) ([]ActiveSLAState, error) {
+	conn, err := s.pool.Acquire(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("acquiring connection: %w", err)
+	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, fmt.Sprintf("SET search_path TO %s, public", s.schema)); err != nil {
+		return nil, fmt.Errorf("setting search_path: %w", err)
+	}
+
+	rows, err := conn.Query(ctx,
+		`SELECT s.id, s.ticket_meta_id, s.response_due_at, s.resolution_due_at,
+		        s.response_met_at, s.first_breach_alerted_at, s.state, s.paused,
+		        s.paused_at, s.accumulated_pause_secs, s.updated_at,
+		        p.response_minutes, p.resolution_minutes, p.warning_threshold
+		 FROM sla_states s
+		 JOIN ticket_meta tm ON tm.id = s.ticket_meta_id
+		 JOIN sla_policies p ON p.id = tm.sla_policy_id
+		 WHERE s.state = 'on_track'
+		   AND s.paused = false
+		   AND s.first_breach_alerted_at IS NULL`)
+	if err != nil {
+		return nil, fmt.Errorf("querying active sla_states: %w", err)
+	}
+	defer rows.Close()
+
+	var states []ActiveSLAState
+	for rows.Next() {
+		var as ActiveSLAState
+		if err := rows.Scan(
+			&as.ID, &as.TicketMetaID, &as.ResponseDueAt, &as.ResolutionDueAt,
+			&as.ResponseMetAt, &as.FirstBreachAlertedAt, &as.Label,
+			&as.Paused, &as.PausedAt, &as.AccumulatedPauseSecs, &as.UpdatedAt,
+			&as.ResponseMinutes, &as.ResolutionMinutes, &as.WarningThreshold,
+		); err != nil {
+			return nil, fmt.Errorf("scanning active sla_state: %w", err)
+		}
+		states = append(states, as)
+	}
+	return states, rows.Err()
+}
+
 // GetPolicyByID returns an SLA policy by its ID.
 func (s *PollerStore) GetPolicyByID(ctx context.Context, id uuid.UUID) (*sla.Policy, error) {
 	conn, err := s.pool.Acquire(ctx)

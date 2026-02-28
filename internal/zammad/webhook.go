@@ -22,6 +22,7 @@ type WebhookTicket struct {
 	StateID   int       `json:"state_id"`
 	State     string    `json:"state"`
 	Priority  string    `json:"priority"`
+	Group     string    `json:"group"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 

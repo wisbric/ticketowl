@@ -34,6 +34,10 @@ func (m *mockPollerStore) ListBreachedTickets(_ context.Context, _ time.Time) ([
 	return m.states, nil
 }
 
+func (m *mockPollerStore) ListActiveStates(_ context.Context) ([]worker.ActiveSLAState, error) {
+	return nil, nil
+}
+
 func (m *mockPollerStore) GetPolicyByID(_ context.Context, id uuid.UUID) (*sla.Policy, error) {
 	p, ok := m.polices[id]
 	if !ok {

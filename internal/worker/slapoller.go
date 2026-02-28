@@ -15,9 +15,19 @@ import (
 // SLAPollerStore defines the database operations the SLA poller needs.
 type SLAPollerStore interface {
 	ListBreachedTickets(ctx context.Context, now time.Time) ([]sla.State, error)
+	ListActiveStates(ctx context.Context) ([]ActiveSLAState, error)
 	GetPolicyByID(ctx context.Context, id uuid.UUID) (*sla.Policy, error)
 	UpsertState(ctx context.Context, state *sla.State) error
 	GetTicketMetaByID(ctx context.Context, metaID uuid.UUID) (*TicketMetaInfo, error)
+}
+
+// ActiveSLAState pairs an SLA state with its policy's warning threshold
+// for warning label computation.
+type ActiveSLAState struct {
+	sla.State
+	ResponseMinutes   int
+	ResolutionMinutes int
+	WarningThreshold  float64
 }
 
 // TicketMetaInfo holds the minimal ticket info the poller needs.
@@ -79,6 +89,8 @@ func (p *SLAPoller) poll(ctx context.Context) {
 	}()
 
 	now := time.Now()
+
+	// 1. Check for breached SLA states and send alerts.
 	states, err := p.store.ListBreachedTickets(ctx, now)
 	if err != nil {
 		p.logger.Error("listing breached SLA states", "error", err)
@@ -90,6 +102,67 @@ func (p *SLAPoller) poll(ctx context.Context) {
 			return
 		}
 		p.processBreachedState(ctx, &states[i], now)
+	}
+
+	// 2. Update on_track states to warning when approaching breach.
+	p.checkWarnings(ctx, now)
+}
+
+// checkWarnings transitions on_track SLA states to warning when the
+// remaining time drops below the policy's warning threshold.
+func (p *SLAPoller) checkWarnings(ctx context.Context, now time.Time) {
+	active, err := p.store.ListActiveStates(ctx)
+	if err != nil {
+		p.logger.Error("listing active SLA states for warning check", "error", err)
+		return
+	}
+
+	for i := range active {
+		if ctx.Err() != nil {
+			return
+		}
+
+		as := &active[i]
+		if as.Label != sla.LabelOnTrack {
+			continue
+		}
+
+		shouldWarn := false
+
+		// Check response time warning.
+		if as.ResponseDueAt != nil && as.ResponseMetAt == nil && as.ResponseMinutes > 0 {
+			totalDuration := time.Duration(as.ResponseMinutes) * time.Minute
+			warningDuration := time.Duration(float64(totalDuration) * as.WarningThreshold)
+			warningAt := as.ResponseDueAt.Add(-warningDuration)
+			if now.After(warningAt) {
+				shouldWarn = true
+			}
+		}
+
+		// Check resolution time warning.
+		if !shouldWarn && as.ResolutionDueAt != nil && as.ResolutionMinutes > 0 {
+			totalDuration := time.Duration(as.ResolutionMinutes) * time.Minute
+			warningDuration := time.Duration(float64(totalDuration) * as.WarningThreshold)
+			warningAt := as.ResolutionDueAt.Add(-warningDuration)
+			if now.After(warningAt) {
+				shouldWarn = true
+			}
+		}
+
+		if shouldWarn {
+			as.Label = sla.LabelWarning
+			as.UpdatedAt = now
+			if err := p.store.UpsertState(ctx, &as.State); err != nil {
+				p.logger.Error("updating SLA state to warning",
+					"error", err,
+					"ticket_meta_id", as.TicketMetaID,
+				)
+			} else {
+				p.logger.Info("SLA state transitioned to warning",
+					"ticket_meta_id", as.TicketMetaID,
+				)
+			}
+		}
 	}
 }
 

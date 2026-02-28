@@ -61,6 +61,7 @@ func HandleZammad(rdb *redis.Client, webhookSecret string, logger *slog.Logger) 
 			StateID:  payload.Ticket.StateID,
 			State:    payload.Ticket.State,
 			Priority: payload.Ticket.Priority,
+			Group:    payload.Ticket.Group,
 		}
 
 		if err := pushEvent(r.Context(), rdb, streamKey, "zammad", evt); err != nil {

@@ -240,3 +240,93 @@ func (s *Store) DeleteAutoTicketRule(ctx context.Context, id uuid.UUID) error {
 	}
 	return nil
 }
+
+// --- Group Roster Mappings ---
+
+// ListGroupRosterMappings returns all group-roster mappings.
+func (s *Store) ListGroupRosterMappings(ctx context.Context) ([]GroupRosterMapping, error) {
+	rows, err := s.dbtx.Query(ctx,
+		`SELECT id, zammad_group, roster_id, auto_assign, escalate_to_secondary, created_at
+		 FROM group_roster_mappings ORDER BY zammad_group`)
+	if err != nil {
+		return nil, fmt.Errorf("listing group_roster_mappings: %w", err)
+	}
+	defer rows.Close()
+
+	var mappings []GroupRosterMapping
+	for rows.Next() {
+		var m GroupRosterMapping
+		if err := rows.Scan(&m.ID, &m.ZammadGroup, &m.RosterID, &m.AutoAssign, &m.EscalateToSecondary, &m.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scanning group_roster_mapping: %w", err)
+		}
+		mappings = append(mappings, m)
+	}
+	return mappings, rows.Err()
+}
+
+// CreateGroupRosterMapping inserts a new group-roster mapping.
+func (s *Store) CreateGroupRosterMapping(ctx context.Context, req CreateGroupRosterMappingRequest) (*GroupRosterMapping, error) {
+	autoAssign := true
+	if req.AutoAssign != nil {
+		autoAssign = *req.AutoAssign
+	}
+	escalate := true
+	if req.EscalateToSecondary != nil {
+		escalate = *req.EscalateToSecondary
+	}
+
+	var m GroupRosterMapping
+	err := s.dbtx.QueryRow(ctx,
+		`INSERT INTO group_roster_mappings (zammad_group, roster_id, auto_assign, escalate_to_secondary)
+		 VALUES ($1, $2, $3, $4)
+		 RETURNING id, zammad_group, roster_id, auto_assign, escalate_to_secondary, created_at`,
+		req.ZammadGroup, req.RosterID, autoAssign, escalate).
+		Scan(&m.ID, &m.ZammadGroup, &m.RosterID, &m.AutoAssign, &m.EscalateToSecondary, &m.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("creating group_roster_mapping: %w", err)
+	}
+	return &m, nil
+}
+
+// UpdateGroupRosterMapping updates an existing group-roster mapping.
+func (s *Store) UpdateGroupRosterMapping(ctx context.Context, id uuid.UUID, req UpdateGroupRosterMappingRequest) (*GroupRosterMapping, error) {
+	var m GroupRosterMapping
+	err := s.dbtx.QueryRow(ctx,
+		`UPDATE group_roster_mappings SET
+		   roster_id = COALESCE($2, roster_id),
+		   auto_assign = COALESCE($3, auto_assign),
+		   escalate_to_secondary = COALESCE($4, escalate_to_secondary)
+		 WHERE id = $1
+		 RETURNING id, zammad_group, roster_id, auto_assign, escalate_to_secondary, created_at`,
+		id, req.RosterID, req.AutoAssign, req.EscalateToSecondary).
+		Scan(&m.ID, &m.ZammadGroup, &m.RosterID, &m.AutoAssign, &m.EscalateToSecondary, &m.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("updating group_roster_mapping: %w", err)
+	}
+	return &m, nil
+}
+
+// DeleteGroupRosterMapping deletes a group-roster mapping.
+func (s *Store) DeleteGroupRosterMapping(ctx context.Context, id uuid.UUID) error {
+	tag, err := s.dbtx.Exec(ctx, `DELETE FROM group_roster_mappings WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("deleting group_roster_mapping: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+// GetGroupRosterMappingByZammadGroup returns the mapping for a Zammad group name.
+func (s *Store) GetGroupRosterMappingByZammadGroup(ctx context.Context, zammadGroup string) (*GroupRosterMapping, error) {
+	var m GroupRosterMapping
+	err := s.dbtx.QueryRow(ctx,
+		`SELECT id, zammad_group, roster_id, auto_assign, escalate_to_secondary, created_at
+		 FROM group_roster_mappings WHERE zammad_group = $1`, zammadGroup).
+		Scan(&m.ID, &m.ZammadGroup, &m.RosterID, &m.AutoAssign, &m.EscalateToSecondary, &m.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}

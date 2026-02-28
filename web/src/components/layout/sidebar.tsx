@@ -1,5 +1,6 @@
 import { Link, useMatchRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Inbox,
   Clock,
@@ -59,6 +60,16 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const showLogout = !import.meta.env.DEV;
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  const { data: authConfig } = useQuery({
+    queryKey: ["auth-config"],
+    queryFn: async () => {
+      const res = await fetch("/auth/config");
+      if (!res.ok) return {};
+      return res.json();
+    },
+    staleTime: Infinity,
+  });
 
   useEffect(() => {
     if (!showUserMenu) return;
@@ -148,20 +159,26 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                       {theme === "dark" ? "Light mode" : "Dark mode"}
                     </button>
                   </div>
-                  <div className="border-t border-border py-1">
-                    <a
-                      href="http://localhost:3000"
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-muted"
-                    >
-                      <ExternalLink className="h-4 w-4" /> NightOwl
-                    </a>
-                    <a
-                      href="http://localhost:3001"
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-muted"
-                    >
-                      <ExternalLink className="h-4 w-4" /> BookOwl
-                    </a>
-                  </div>
+                  {(authConfig?.nightowl_url || authConfig?.bookowl_url) && (
+                    <div className="border-t border-border py-1">
+                      {authConfig.nightowl_url && (
+                        <a
+                          href={authConfig.nightowl_url}
+                          className="flex items-center gap-2 px-3 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-muted"
+                        >
+                          <ExternalLink className="h-4 w-4" /> NightOwl
+                        </a>
+                      )}
+                      {authConfig.bookowl_url && (
+                        <a
+                          href={authConfig.bookowl_url}
+                          className="flex items-center gap-2 px-3 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-muted"
+                        >
+                          <ExternalLink className="h-4 w-4" /> BookOwl
+                        </a>
+                      )}
+                    </div>
+                  )}
                   {showLogout && (
                     <div className="border-t border-border py-1">
                       <button
@@ -294,20 +311,26 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   </button>
                 </div>
 
-                <div className="border-t border-border py-1">
-                  <a
-                    href="http://localhost:3000"
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-muted"
-                  >
-                    <ExternalLink className="h-4 w-4" /> NightOwl
-                  </a>
-                  <a
-                    href="http://localhost:3001"
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-muted"
-                  >
-                    <ExternalLink className="h-4 w-4" /> BookOwl
-                  </a>
-                </div>
+                {(authConfig?.nightowl_url || authConfig?.bookowl_url) && (
+                  <div className="border-t border-border py-1">
+                    {authConfig.nightowl_url && (
+                      <a
+                        href={authConfig.nightowl_url}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-muted"
+                      >
+                        <ExternalLink className="h-4 w-4" /> NightOwl
+                      </a>
+                    )}
+                    {authConfig.bookowl_url && (
+                      <a
+                        href={authConfig.bookowl_url}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-muted"
+                      >
+                        <ExternalLink className="h-4 w-4" /> BookOwl
+                      </a>
+                    )}
+                  </div>
+                )}
 
                 {showLogout && (
                   <div className="border-t border-border py-1">

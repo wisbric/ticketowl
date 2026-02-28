@@ -48,3 +48,25 @@ func (c *Client) GetCurrentUser(ctx context.Context) (*User, error) {
 
 	return &user, nil
 }
+
+// SearchUsersByEmail searches for a Zammad user by email address.
+// Returns nil if no user is found.
+func (c *Client) SearchUsersByEmail(ctx context.Context, email string) (*User, error) {
+	path := "/api/v1/users/search?query=" + email + "&limit=1&expand=true"
+
+	body, err := c.get(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("searching users by email %s: %w", email, err)
+	}
+
+	var users []User
+	if err := json.Unmarshal(body, &users); err != nil {
+		return nil, fmt.Errorf("decoding user search results: %w", err)
+	}
+
+	if len(users) == 0 {
+		return nil, nil
+	}
+
+	return &users[0], nil
+}

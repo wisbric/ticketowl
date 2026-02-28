@@ -83,6 +83,27 @@ func (s *Store) DeleteIncidentLink(ctx context.Context, ticketMetaID, incidentID
 	return nil
 }
 
+// ListIncidentLinksByIncidentID returns all incident links for a given incident.
+func (s *Store) ListIncidentLinksByIncidentID(ctx context.Context, incidentID uuid.UUID) ([]IncidentLink, error) {
+	rows, err := s.dbtx.Query(ctx,
+		`SELECT id, ticket_meta_id, incident_id, incident_slug, linked_by, created_at
+		 FROM incident_links WHERE incident_id = $1 ORDER BY created_at`, incidentID)
+	if err != nil {
+		return nil, fmt.Errorf("listing incident links by incident: %w", err)
+	}
+	defer rows.Close()
+
+	var links []IncidentLink
+	for rows.Next() {
+		var l IncidentLink
+		if err := rows.Scan(&l.ID, &l.TicketMetaID, &l.IncidentID, &l.IncidentSlug, &l.LinkedBy, &l.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scanning incident link: %w", err)
+		}
+		links = append(links, l)
+	}
+	return links, rows.Err()
+}
+
 // --- Article Links ---
 
 // ListArticleLinks returns all article links for a ticket.

@@ -12,6 +12,7 @@ type ZammadEvent struct {
 	StateID  int    `json:"state_id"`
 	State    string `json:"state"`
 	Priority string `json:"priority"`
+	Group    string `json:"group"`
 }
 
 // NightOwlEvent wraps a NightOwl webhook payload for the Redis stream.
