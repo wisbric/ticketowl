@@ -166,6 +166,13 @@ Avoids duplicating the full env block in both deployment templates.
     configMapKeyRef:
       name: {{ include "ticketowl.fullname" . }}
       key: TICKETOWL_WORKER_POLL_SECONDS
+{{- if .Values.secrets.adminPassword }}
+- name: TICKETOWL_ADMIN_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "ticketowl.secretName" . }}
+      key: TICKETOWL_ADMIN_PASSWORD
+{{- end }}
 {{- if .Values.config.nightowlApiUrl }}
 - name: TICKETOWL_NIGHTOWL_API_URL
   valueFrom:

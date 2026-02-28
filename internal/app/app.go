@@ -293,7 +293,7 @@ func runSeed(ctx context.Context, cfg *config.Config, logger *slog.Logger) error
 	}
 	logger.Info("global migrations applied")
 
-	return seed.Run(ctx, db, cfg.DatabaseURL, cfg.MigrationsTenantDir, logger)
+	return seed.Run(ctx, db, cfg.DatabaseURL, cfg.MigrationsTenantDir, logger, cfg.AdminPassword)
 }
 
 func runSeedDemo(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
@@ -309,7 +309,7 @@ func runSeedDemo(ctx context.Context, cfg *config.Config, logger *slog.Logger) e
 	}
 	logger.Info("global migrations applied")
 
-	return seed.RunDemo(ctx, db, cfg.DatabaseURL, cfg.MigrationsTenantDir, logger)
+	return seed.RunDemo(ctx, db, cfg.DatabaseURL, cfg.MigrationsTenantDir, logger, cfg.AdminPassword)
 }
 
 func runMigrate(cfg *config.Config, logger *slog.Logger) error {

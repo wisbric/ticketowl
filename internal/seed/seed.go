@@ -43,7 +43,7 @@ const DevAPIKey = "to_dev_seed_key_do_not_use_in_production"
 
 // Run creates the "acme" dev tenant with seed data. Idempotent — re-running
 // will ensure all resources exist without duplicating them.
-func Run(ctx context.Context, db *pgxpool.Pool, databaseURL, migrationsDir string, logger *slog.Logger) error {
+func Run(ctx context.Context, db *pgxpool.Pool, databaseURL, migrationsDir string, logger *slog.Logger, adminPassword string) error {
 	// Check if tenant already exists.
 	var exists bool
 	var tenantID uuid.UUID
@@ -54,7 +54,7 @@ func Run(ctx context.Context, db *pgxpool.Pool, databaseURL, migrationsDir strin
 
 	if exists {
 		logger.Info("seed: acme tenant already exists, ensuring local admin")
-		if err := ensureLocalAdmin(ctx, db, tenantID, logger); err != nil {
+		if err := ensureLocalAdmin(ctx, db, tenantID, logger, adminPassword); err != nil {
 			return err
 		}
 		return nil
@@ -112,7 +112,7 @@ func Run(ctx context.Context, db *pgxpool.Pool, databaseURL, migrationsDir strin
 	}
 
 	// Create local admin.
-	if err := ensureLocalAdmin(ctx, db, info.ID, logger); err != nil {
+	if err := ensureLocalAdmin(ctx, db, info.ID, logger, adminPassword); err != nil {
 		return err
 	}
 
@@ -124,25 +124,34 @@ func Run(ctx context.Context, db *pgxpool.Pool, databaseURL, migrationsDir strin
 	return nil
 }
 
-// ensureLocalAdmin creates the local admin account if it doesn't already exist.
-// Uses ON CONFLICT to be idempotent.
-func ensureLocalAdmin(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, logger *slog.Logger) error {
-	localAdminPassword := "ticketowl-admin"
+// ensureLocalAdmin creates or updates the local admin account.
+// When adminPassword is explicitly set, the password is always updated (ON CONFLICT DO UPDATE).
+// When adminPassword is empty, the default is used and existing admins are left untouched.
+func ensureLocalAdmin(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, logger *slog.Logger, adminPassword string) error {
+	localAdminPassword := adminPassword
+	if localAdminPassword == "" {
+		localAdminPassword = "ticketowl-admin"
+	}
 	adminPasswordHash, err := bcrypt.GenerateFromPassword([]byte(localAdminPassword), 12)
 	if err != nil {
 		return fmt.Errorf("hashing local admin password: %w", err)
 	}
 
-	tag, err := pool.Exec(ctx,
-		"INSERT INTO public.local_admins (tenant_id, username, password_hash, must_change) VALUES ($1, 'admin', $2, true) ON CONFLICT (tenant_id) DO NOTHING",
-		tenantID, string(adminPasswordHash),
-	)
+	var query string
+	if adminPassword != "" {
+		// Explicit password: upsert so existing admin gets the configured password.
+		query = "INSERT INTO public.local_admins (tenant_id, username, password_hash, must_change) VALUES ($1, 'admin', $2, true) ON CONFLICT (tenant_id) DO UPDATE SET password_hash = EXCLUDED.password_hash, must_change = true"
+	} else {
+		query = "INSERT INTO public.local_admins (tenant_id, username, password_hash, must_change) VALUES ($1, 'admin', $2, true) ON CONFLICT (tenant_id) DO NOTHING"
+	}
+
+	tag, err := pool.Exec(ctx, query, tenantID, string(adminPasswordHash))
 	if err != nil {
 		return fmt.Errorf("creating local admin: %w", err)
 	}
 
 	if tag.RowsAffected() > 0 {
-		logger.Info("seed: created local admin", "username", "admin", "password", localAdminPassword)
+		logger.Info("seed: created/updated local admin", "username", "admin")
 	} else {
 		logger.Info("seed: local admin already exists")
 	}

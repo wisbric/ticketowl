@@ -91,6 +91,7 @@ secrets:
   oidcClientSecret: ""
   oidcRedirectUrl: ""   # e.g. https://ticketowl.example.com/auth/oidc/callback
   encryptionKey: ""
+  adminPassword: ""
   nightowlApiKey: ""
   bookowlApiKey: ""
 
@@ -119,6 +120,10 @@ ingress:
 podDisruptionBudget:
   enabled: true
   minAvailable: 1
+
+# -- Seed job (runs on first install to bootstrap tenant + admin)
+seed:
+  enabled: false
 
 # -- Migration job
 migration:

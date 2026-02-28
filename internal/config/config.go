@@ -30,6 +30,9 @@ type Config struct {
 	SessionSecret string `env:"TICKETOWL_SESSION_SECRET"`
 	SessionMaxAge string `env:"TICKETOWL_SESSION_MAX_AGE" envDefault:"24h"`
 
+	// Admin
+	AdminPassword string `env:"TICKETOWL_ADMIN_PASSWORD"`
+
 	// Encryption
 	EncryptionKey string `env:"TICKETOWL_ENCRYPTION_KEY"`
 }
