@@ -38,13 +38,6 @@ interface OIDCForm {
   enabled: boolean;
 }
 
-const emptyForm: OIDCForm = {
-  issuer_url: "",
-  client_id: "",
-  client_secret: "",
-  enabled: false,
-};
-
 export function AdminAuthPage() {
   useTitle("Authentication");
   const queryClient = useQueryClient();

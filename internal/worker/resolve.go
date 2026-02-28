@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -83,7 +84,7 @@ func (h *DefaultEventHandler) autoAssignTicket(ctx context.Context, conn *pgxpoo
 	adminStore := admin.NewStore(conn)
 	mapping, err := adminStore.GetGroupRosterMappingByZammadGroup(ctx, zammadGroup)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return // No mapping for this group
 		}
 		h.logger.Warn("looking up group-roster mapping", "error", err, "group", zammadGroup)
@@ -200,7 +201,7 @@ func (h *DefaultEventHandler) handleTicketCreate(ctx context.Context, evt webhoo
 	}
 	policy, err := slaStore.GetDefaultPolicyByPriority(ctx, priority)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			h.logger.Info("no default SLA policy for priority, skipping SLA init", "priority", priority)
 			return nil
 		}
@@ -264,7 +265,7 @@ func (h *DefaultEventHandler) handleTicketUpdate(ctx context.Context, evt webhoo
 	ticketStore := ticket.NewStore(conn)
 	meta, err := ticketStore.GetByZammadID(ctx, evt.TicketID)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			h.logger.Info("ticket_meta not found for update, skipping", "ticket_id", evt.TicketID)
 			return nil
 		}
@@ -275,7 +276,7 @@ func (h *DefaultEventHandler) handleTicketUpdate(ctx context.Context, evt webhoo
 	slaStore := sla.NewStore(conn)
 	state, err := slaStore.GetStateByTicketMetaID(ctx, meta.ID)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil // No SLA tracking for this ticket
 		}
 		return fmt.Errorf("getting SLA state: %w", err)
@@ -320,11 +321,8 @@ func (h *DefaultEventHandler) handleTicketUpdate(ctx context.Context, evt webhoo
 		h.logger.Info("SLA resumed", "ticket_id", evt.TicketID, "state", evt.State)
 	}
 
-	// If this is a response (first article from agent), mark response as met.
-	if state.ResponseMetAt == nil && (evt.State == "open" || evt.State == "new") {
-		// Response is tracked separately via article.create in future.
-		// For now, we only handle pause/resume here.
-	}
+	// Response tracking (first article from agent) will be handled via
+	// article.create events in a future phase. For now, only pause/resume.
 
 	return nil
 }
