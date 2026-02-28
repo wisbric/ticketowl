@@ -23,6 +23,9 @@ data:
   {{- if .Values.config.bookowlUrl }}
   TICKETOWL_BOOKOWL_URL: {{ .Values.config.bookowlUrl | quote }}
   {{- end }}
+  {{- if .Values.config.zammadUrl }}
+  TICKETOWL_ZAMMAD_URL: {{ .Values.config.zammadUrl | quote }}
+  {{- end }}
   {{- if .Values.config.otelEndpoint }}
   TICKETOWL_OTEL_ENDPOINT: {{ .Values.config.otelEndpoint | quote }}
   {{- end }}

@@ -9,7 +9,8 @@ type Config struct {
 	coreconfig.BaseConfig
 
 	// Zammad
-	ZammadURL string `env:"TICKETOWL_ZAMMAD_URL"`
+	ZammadURL   string `env:"TICKETOWL_ZAMMAD_URL"`
+	ZammadToken string `env:"TICKETOWL_ZAMMAD_TOKEN"`
 
 	// NightOwl integration
 	NightOwlAPIURL string `env:"TICKETOWL_NIGHTOWL_API_URL"`

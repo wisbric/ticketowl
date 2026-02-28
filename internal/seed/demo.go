@@ -14,7 +14,7 @@ import (
 
 // RunDemo drops and recreates the acme tenant with demo data.
 // This is destructive — intended for UI development only.
-func RunDemo(ctx context.Context, db *pgxpool.Pool, databaseURL, migrationsDir string, logger *slog.Logger, adminPassword string) error {
+func RunDemo(ctx context.Context, db *pgxpool.Pool, databaseURL, migrationsDir string, logger *slog.Logger, adminPassword, zammadURL, zammadToken string) error {
 	schema := tenant.SchemaName("acme")
 
 	// Drop existing tenant if present.
@@ -30,7 +30,7 @@ func RunDemo(ctx context.Context, db *pgxpool.Pool, databaseURL, migrationsDir s
 	}
 
 	// Re-run the standard seed first.
-	if err := Run(ctx, db, databaseURL, migrationsDir, logger, adminPassword); err != nil {
+	if err := Run(ctx, db, databaseURL, migrationsDir, logger, adminPassword, zammadURL, zammadToken); err != nil {
 		return fmt.Errorf("running base seed: %w", err)
 	}
 

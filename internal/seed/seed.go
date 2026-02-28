@@ -43,7 +43,7 @@ const DevAPIKey = "to_dev_seed_key_do_not_use_in_production"
 
 // Run creates the "acme" dev tenant with seed data. Idempotent — re-running
 // will ensure all resources exist without duplicating them.
-func Run(ctx context.Context, db *pgxpool.Pool, databaseURL, migrationsDir string, logger *slog.Logger, adminPassword string) error {
+func Run(ctx context.Context, db *pgxpool.Pool, databaseURL, migrationsDir string, logger *slog.Logger, adminPassword, zammadURL, zammadToken string) error {
 	// Check if tenant already exists.
 	var exists bool
 	var tenantID uuid.UUID
@@ -101,8 +101,8 @@ func Run(ctx context.Context, db *pgxpool.Pool, databaseURL, migrationsDir strin
 		return fmt.Errorf("seeding SLA policies: %w", err)
 	}
 
-	// Seed Zammad config (dev placeholder).
-	if err := seedZammadConfig(ctx, conn); err != nil {
+	// Seed Zammad config.
+	if err := seedZammadConfig(ctx, conn, zammadURL, zammadToken); err != nil {
 		return fmt.Errorf("seeding Zammad config: %w", err)
 	}
 
@@ -185,12 +185,18 @@ func seedSLAPolicies(ctx context.Context, conn *pgxpool.Conn) error {
 	return nil
 }
 
-func seedZammadConfig(ctx context.Context, conn *pgxpool.Conn) error {
+func seedZammadConfig(ctx context.Context, conn *pgxpool.Conn, zammadURL, zammadToken string) error {
+	if zammadURL == "" {
+		zammadURL = "http://localhost:3003"
+	}
+	if zammadToken == "" {
+		zammadToken = "dev-zammad-token-placeholder"
+	}
 	_, err := conn.Exec(ctx,
 		`INSERT INTO zammad_config (url, api_token, webhook_secret)
 		 VALUES ($1, $2, $3)`,
-		"http://localhost:3003",
-		"dev-zammad-token-placeholder",
+		zammadURL,
+		zammadToken,
 		"dev-webhook-secret-placeholder",
 	)
 	return err

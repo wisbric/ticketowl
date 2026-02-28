@@ -80,6 +80,7 @@ config:
   otelEndpoint: ""
   nightowlUrl: ""    # NightOwl web URL for sidebar link
   bookowlUrl: ""     # BookOwl web URL for sidebar link
+  zammadUrl: ""      # Zammad internal URL (used by seed to set tenant config)
 
 # -- Secrets (create Secret resource or reference existing)
 secrets:
@@ -96,6 +97,7 @@ secrets:
   adminPassword: ""
   nightowlApiKey: ""
   bookowlApiKey: ""
+  zammadToken: ""    # Zammad API token (used by seed to set tenant config)
 
 # -- Service
 service:
