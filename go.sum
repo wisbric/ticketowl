@@ -128,6 +128,8 @@ github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/wisbric/core v0.1.4-0.20260227121704-38a5448baa83 h1:/XBJfITA4Xd23isLVrMNnoLhjNdEenguA0RXcIjZGW0=
 github.com/wisbric/core v0.1.4-0.20260227121704-38a5448baa83/go.mod h1:DzenpO8oDY23vz+4kIUb/ZS/nYiWxcwapWNHSTiR/Rw=
+github.com/wisbric/core v0.1.4-0.20260228053726-bfab70636620 h1:Zv0/HpkZnItvbjT6uLIykERYY0onXEcQPG0ch/pLeA4=
+github.com/wisbric/core v0.1.4-0.20260228053726-bfab70636620/go.mod h1:DzenpO8oDY23vz+4kIUb/ZS/nYiWxcwapWNHSTiR/Rw=
 github.com/zeebo/xxh3 v1.0.2 h1:xZmwmqxHZA8AI603jOQ0tMqmBr9lPeFwGg6d+xy9DC0=
 github.com/zeebo/xxh3 v1.0.2/go.mod h1:5NWz9Sef7zIDm2JHfFlcQvNekmcEl9ekUZQQKCYaDcA=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=

@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"golang.org/x/oauth2"
@@ -140,6 +142,7 @@ func runAPI(ctx context.Context, cfg *config.Config, logger *slog.Logger, metric
 		CORSAllowedOrigins: cfg.CORSAllowedOrigins,
 		ZammadURL:          cfg.ZammadURL,
 		DevMode:            cfg.DevMode,
+		TenantLookup:       &globalTenantLookup{pool: db},
 	}, logger, db, rdb, metricsReg, sessionMgr, oidcAuth, patAuth, authStore)
 
 	// --- Auth routes (public, pre-authentication) ---
@@ -318,4 +321,22 @@ func runMigrate(cfg *config.Config, logger *slog.Logger) error {
 	}
 	logger.Info("global migrations applied")
 	return nil
+}
+
+// globalTenantLookup implements tenant.TenantLookup for TicketOwl's global schema.
+type globalTenantLookup struct {
+	pool *pgxpool.Pool
+}
+
+func (g *globalTenantLookup) LookupBySlug(ctx context.Context, slug string) (uuid.UUID, string, error) {
+	var tenantID uuid.UUID
+	var tenantName string
+	err := g.pool.QueryRow(ctx,
+		"SELECT id, name FROM global.tenants WHERE slug = $1",
+		slug,
+	).Scan(&tenantID, &tenantName)
+	if err != nil {
+		return uuid.Nil, "", err
+	}
+	return tenantID, tenantName, nil
 }

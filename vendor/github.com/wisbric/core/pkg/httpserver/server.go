@@ -26,6 +26,7 @@ type ServerConfig struct {
 	CORSAllowedOrigins []string
 	ZammadURL          string // optional, for readyz
 	DevMode            bool
+	TenantLookup       tenant.TenantLookup // optional; defaults to public.tenants
 }
 
 // Server holds the HTTP server dependencies.
@@ -86,7 +87,11 @@ func NewServer(cfg ServerConfig, logger *slog.Logger, db *pgxpool.Pool, rdb *red
 		r.Use(auth.Middleware(sessionMgr, oidcAuth, patAuth, authStore, logger, cfg.DevMode))
 
 		// 2. Resolve tenant and set search_path from the authenticated identity.
-		r.Use(tenant.Middleware(db, &authContextResolver{}, logger))
+		if cfg.TenantLookup != nil {
+			r.Use(tenant.MiddlewareWithLookup(db, cfg.TenantLookup, &authContextResolver{}, logger))
+		} else {
+			r.Use(tenant.Middleware(db, &authContextResolver{}, logger))
+		}
 
 		// 3. Require valid authentication on all /api/v1 routes.
 		r.Use(auth.RequireAuth)
