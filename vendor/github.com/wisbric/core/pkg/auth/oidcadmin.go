@@ -25,6 +25,13 @@ type OIDCConfigResponse struct {
 	ClientSecret string  `json:"client_secret"` // masked
 	Enabled      bool    `json:"enabled"`
 	TestedAt     *string `json:"tested_at,omitempty"`
+	Source       string  `json:"source,omitempty"` // "environment" when from env vars, empty when from database
+}
+
+// OIDCEnvDefaults holds OIDC values from environment variables for display in admin UI.
+type OIDCEnvDefaults struct {
+	IssuerURL string
+	ClientID  string
 }
 
 // OIDCConfigUpdateRequest is the JSON body for PUT /api/v1/admin/oidc/config.
@@ -51,9 +58,10 @@ type LocalAdminResetResponse struct {
 
 // OIDCAdminHandler handles OIDC config admin endpoints.
 type OIDCAdminHandler struct {
-	store     Storage
-	logger    *slog.Logger
-	secretKey string
+	store       Storage
+	logger      *slog.Logger
+	secretKey   string
+	envDefaults OIDCEnvDefaults
 }
 
 // NewOIDCAdminHandler creates a new OIDC admin handler.
@@ -63,6 +71,12 @@ func NewOIDCAdminHandler(store Storage, logger *slog.Logger, secretKey string) *
 		logger:    logger,
 		secretKey: secretKey,
 	}
+}
+
+// SetEnvDefaults sets OIDC values from environment variables. When no DB
+// config exists for a tenant, these values are returned with source="environment".
+func (h *OIDCAdminHandler) SetEnvDefaults(d OIDCEnvDefaults) {
+	h.envDefaults = d
 }
 
 // HandleGetOIDCConfig returns the current OIDC config for the tenant (secret masked).
@@ -75,7 +89,17 @@ func (h *OIDCAdminHandler) HandleGetOIDCConfig(w http.ResponseWriter, r *http.Re
 
 	row, err := h.getOIDCConfig(r.Context(), id.TenantSlug)
 	if err != nil {
-		// No config yet — return empty.
+		// No config in DB — fall back to env-var defaults if available.
+		if h.envDefaults.IssuerURL != "" {
+			respondJSON(w, http.StatusOK, OIDCConfigResponse{
+				IssuerURL:    h.envDefaults.IssuerURL,
+				ClientID:     h.envDefaults.ClientID,
+				ClientSecret: "••••••••••••••••",
+				Enabled:      true,
+				Source:       "environment",
+			})
+			return
+		}
 		respondJSON(w, http.StatusOK, OIDCConfigResponse{})
 		return
 	}
@@ -129,14 +153,19 @@ func (h *OIDCAdminHandler) HandleTestOIDCConnection(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// Get the config (with decrypted secret).
+	// Get the config (with decrypted secret). Fall back to env defaults.
 	issuerURL, clientID, err := h.getOIDCConfigDecrypted(r.Context(), id.TenantSlug)
 	if err != nil {
-		respondJSON(w, http.StatusOK, OIDCTestResponse{
-			OK:    false,
-			Error: "no OIDC configuration found",
-		})
-		return
+		if h.envDefaults.IssuerURL != "" {
+			issuerURL = h.envDefaults.IssuerURL
+			clientID = h.envDefaults.ClientID
+		} else {
+			respondJSON(w, http.StatusOK, OIDCTestResponse{
+				OK:    false,
+				Error: "no OIDC configuration found",
+			})
+			return
+		}
 	}
 
 	// Try OIDC discovery.

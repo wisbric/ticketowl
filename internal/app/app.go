@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"golang.org/x/oauth2"
@@ -219,6 +220,23 @@ func runAPI(ctx context.Context, cfg *config.Config, logger *slog.Logger, metric
 	// SLA policy routes (authenticated, tenant-scoped).
 	slaHandler := sla.NewHandler(logger)
 	srv.APIRouter.Mount("/admin/sla-policies", slaHandler.PolicyRoutes())
+
+	// OIDC admin config endpoints (admin role required).
+	oidcAdminHandler := auth.NewOIDCAdminHandler(authStore, logger, sessionSecret)
+	oidcAdminHandler.SetEnvDefaults(auth.OIDCEnvDefaults{
+		IssuerURL: cfg.OIDCIssuerURL,
+		ClientID:  cfg.OIDCClientID,
+	})
+	srv.APIRouter.Route("/admin/oidc", func(r chi.Router) {
+		r.Use(auth.RequireRole(auth.RoleAdmin))
+		r.Get("/config", oidcAdminHandler.HandleGetOIDCConfig)
+		r.Put("/config", oidcAdminHandler.HandleUpdateOIDCConfig)
+		r.Post("/test", oidcAdminHandler.HandleTestOIDCConnection)
+	})
+	srv.APIRouter.Route("/admin/local-admin", func(r chi.Router) {
+		r.Use(auth.RequireRole(auth.RoleAdmin))
+		r.Post("/reset", oidcAdminHandler.HandleResetLocalAdmin)
+	})
 
 	httpSrv := &http.Server{
 		Addr:         cfg.ListenAddr(),

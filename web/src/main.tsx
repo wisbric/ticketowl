@@ -17,6 +17,7 @@ import { AuthCallbackPage } from "@/pages/auth-callback";
 import { TicketListPage } from "@/pages/ticket-list";
 import { TicketDetailPage } from "@/pages/ticket-detail";
 import { AdminSLAPage } from "@/pages/admin-sla";
+import { AdminAuthPage } from "@/pages/admin-auth";
 import { AdminPage } from "@/pages/admin";
 import { AdminZammadPage } from "@/pages/admin-zammad";
 import { AdminIntegrationsPage } from "@/pages/admin-integrations";
@@ -125,6 +126,11 @@ const adminRulesRoute = createRoute({
   path: "/admin/rules",
   component: AdminRulesPage,
 });
+const adminAuthRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: "/admin/auth",
+  component: AdminAuthPage,
+});
 const aboutRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: "/about",
@@ -160,6 +166,7 @@ const routeTree = publicRootRoute.addChildren([
     adminIntegrationsRoute,
     adminCustomersRoute,
     adminRulesRoute,
+    adminAuthRoute,
     aboutRoute,
     notFoundRoute,
   ]),

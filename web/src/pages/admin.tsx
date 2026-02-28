@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useTitle } from "@/hooks/use-title";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Server, Link2, Users, Zap } from "lucide-react";
+import { Server, Link2, Users, Zap, Shield } from "lucide-react";
 
 const adminCards = [
   {
@@ -27,6 +27,12 @@ const adminCards = [
     title: "Auto-Ticket Rules",
     description: "Configure rules that automatically create tickets from NightOwl alerts.",
     icon: Zap,
+  },
+  {
+    to: "/admin/auth",
+    title: "Authentication",
+    description: "Configure OIDC/Keycloak SSO and manage the local admin account.",
+    icon: Shield,
   },
 ] as const;
 
