@@ -14,6 +14,7 @@ import (
 	"github.com/wisbric/core/pkg/httpserver"
 	"github.com/wisbric/core/pkg/tenant"
 
+	"github.com/wisbric/ticketowl/internal/clientresolver"
 	"github.com/wisbric/ticketowl/internal/link"
 	"github.com/wisbric/ticketowl/internal/telemetry"
 	"github.com/wisbric/ticketowl/internal/zammad"
@@ -21,31 +22,26 @@ import (
 
 // Handler provides HTTP handlers for the tickets API.
 type Handler struct {
-	logger        *slog.Logger
-	zammad        ZammadClient
-	bookowlSearch BookOwlSearcher
-	bookowlPM     PostMortemCreator
-	nightowlFetch NightOwlIncidentFetcher
+	logger *slog.Logger
 }
 
 // NewHandler creates a ticket Handler.
-func NewHandler(logger *slog.Logger, zammad ZammadClient) *Handler {
+func NewHandler(logger *slog.Logger) *Handler {
 	return &Handler{
 		logger: logger,
-		zammad: zammad,
 	}
 }
 
-// WithEnrichment sets the optional BookOwl and NightOwl clients for suggestions and post-mortems.
-func (h *Handler) WithEnrichment(bookowlSearch BookOwlSearcher, bookowlPM PostMortemCreator, nightowlFetch NightOwlIncidentFetcher) *Handler {
-	h.bookowlSearch = bookowlSearch
-	h.bookowlPM = bookowlPM
-	h.nightowlFetch = nightowlFetch
-	return h
+// ChildRoutes holds optional sub-routers to nest under /tickets/{id}.
+type ChildRoutes struct {
+	Comments chi.Router
+	Links    chi.Router
+	SLA      chi.Router
 }
 
 // Routes returns a chi.Router with all ticket routes mounted.
-func (h *Handler) Routes() chi.Router {
+// If children is non-nil, nested comment and link routes are mounted under /{id}.
+func (h *Handler) Routes(children *ChildRoutes) chi.Router {
 	r := chi.NewRouter()
 	r.Get("/", h.handleList)
 	r.Post("/", h.handleCreate)
@@ -54,15 +50,31 @@ func (h *Handler) Routes() chi.Router {
 		r.Patch("/", h.handleUpdate)
 		r.Get("/suggestions", h.handleGetSuggestions)
 		r.Post("/postmortem", h.handleCreatePostMortem)
+
+		if children != nil {
+			if children.Comments != nil {
+				r.Mount("/comments", children.Comments)
+			}
+			if children.Links != nil {
+				r.Mount("/links", children.Links)
+			}
+			if children.SLA != nil {
+				r.Mount("/sla", children.SLA)
+			}
+		}
 	})
 	return r
 }
 
-// service creates a per-request Service from the tenant-scoped connection.
-func (h *Handler) service(r *http.Request) *Service {
+// service creates a per-request Service by resolving the Zammad client from the tenant DB.
+func (h *Handler) service(r *http.Request) (*Service, error) {
 	conn := tenant.ConnFromContext(r.Context())
+	zClient, err := clientresolver.ZammadClient(r.Context(), conn, h.logger)
+	if err != nil {
+		return nil, err
+	}
 	var store TicketStore = NewStore(conn)
-	return NewService(h.zammad, store, h.logger)
+	return NewService(zClient, store, h.logger), nil
 }
 
 func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +85,13 @@ func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svc := h.service(r)
+	svc, err := h.service(r)
+	if err != nil {
+		h.logger.Error("resolving zammad client", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "zammad not configured")
+		return
+	}
+
 	ticket, err := svc.Get(r.Context(), id)
 	if err != nil {
 		if zammad.IsNotFound(err) {
@@ -107,7 +125,13 @@ func (h *Handler) handleList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	svc := h.service(r)
+	svc, err := h.service(r)
+	if err != nil {
+		h.logger.Error("resolving zammad client", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "zammad not configured")
+		return
+	}
+
 	tickets, err := svc.List(r.Context(), opts)
 	if err != nil {
 		h.logger.Error("listing tickets", "error", err)
@@ -135,7 +159,13 @@ func (h *Handler) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svc := h.service(r)
+	svc, err := h.service(r)
+	if err != nil {
+		h.logger.Error("resolving zammad client", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "zammad not configured")
+		return
+	}
+
 	ticket, err := svc.Create(r.Context(), req)
 	if err != nil {
 		h.logger.Error("creating ticket", "error", err)
@@ -160,7 +190,13 @@ func (h *Handler) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svc := h.service(r)
+	svc, err := h.service(r)
+	if err != nil {
+		h.logger.Error("resolving zammad client", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "zammad not configured")
+		return
+	}
+
 	ticket, err := svc.Update(r.Context(), id, req)
 	if err != nil {
 		if zammad.IsNotFound(err) {
@@ -182,12 +218,25 @@ func (h *Handler) handleGetSuggestions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.bookowlSearch == nil {
+	conn := tenant.ConnFromContext(r.Context())
+
+	// Resolve Zammad client (required).
+	zClient, err := clientresolver.ZammadClient(r.Context(), conn, h.logger)
+	if err != nil {
+		h.logger.Error("resolving zammad client for suggestions", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "zammad not configured")
+		return
+	}
+
+	// Resolve BookOwl client (optional — graceful degradation).
+	bookowlClient, err := clientresolver.BookOwlClient(r.Context(), conn, h.logger)
+	if err != nil {
+		h.logger.Info("bookowl not configured, returning empty suggestions", "error", err)
 		httpserver.Respond(w, http.StatusOK, []Suggestion{})
 		return
 	}
 
-	t, err := h.zammad.GetTicket(r.Context(), id)
+	t, err := zClient.GetTicket(r.Context(), id)
 	if err != nil {
 		if zammad.IsNotFound(err) {
 			httpserver.RespondError(w, http.StatusNotFound, "not_found", "ticket not found")
@@ -198,7 +247,7 @@ func (h *Handler) handleGetSuggestions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	suggestions := GetSuggestions(r.Context(), h.bookowlSearch, t.Title, t.Tags, h.logger)
+	suggestions := GetSuggestions(r.Context(), bookowlClient, t.Title, t.Tags, h.logger)
 	httpserver.Respond(w, http.StatusOK, suggestions)
 }
 
@@ -209,12 +258,29 @@ func (h *Handler) handleCreatePostMortem(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if h.bookowlPM == nil || h.nightowlFetch == nil {
-		httpserver.RespondError(w, http.StatusServiceUnavailable, "unavailable", "post-mortem creation not configured")
+	conn := tenant.ConnFromContext(r.Context())
+
+	// Resolve Zammad client (required).
+	zClient, err := clientresolver.ZammadClient(r.Context(), conn, h.logger)
+	if err != nil {
+		h.logger.Error("resolving zammad client for post-mortem", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "zammad not configured")
 		return
 	}
 
-	t, err := h.zammad.GetTicket(r.Context(), id)
+	// Resolve BookOwl + NightOwl clients (required for post-mortem creation).
+	bookowlClient, err := clientresolver.BookOwlClient(r.Context(), conn, h.logger)
+	if err != nil {
+		httpserver.RespondError(w, http.StatusServiceUnavailable, "unavailable", "bookowl not configured")
+		return
+	}
+	nightowlClient, err := clientresolver.NightOwlClient(r.Context(), conn, h.logger)
+	if err != nil {
+		httpserver.RespondError(w, http.StatusServiceUnavailable, "unavailable", "nightowl not configured")
+		return
+	}
+
+	t, err := zClient.GetTicket(r.Context(), id)
 	if err != nil {
 		if zammad.IsNotFound(err) {
 			httpserver.RespondError(w, http.StatusNotFound, "not_found", "ticket not found")
@@ -231,10 +297,9 @@ func (h *Handler) handleCreatePostMortem(w http.ResponseWriter, r *http.Request)
 		createdBy = *identity.UserID
 	}
 
-	conn := tenant.ConnFromContext(r.Context())
 	pmStore := link.NewStore(conn)
 
-	result, err := CreatePostMortem(r.Context(), id, t.Number, t.Title, createdBy, pmStore, h.bookowlPM, h.nightowlFetch)
+	result, err := CreatePostMortem(r.Context(), id, t.Number, t.Title, createdBy, pmStore, bookowlClient, nightowlClient)
 	if err != nil {
 		var existsErr *ErrPostMortemExists
 		if errors.As(err, &existsErr) {

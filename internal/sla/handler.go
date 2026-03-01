@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -138,22 +139,21 @@ func (h *Handler) handleDeletePolicy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleGetTicketSLA(w http.ResponseWriter, r *http.Request) {
-	// The ticket meta ID is passed from the parent ticket router.
-	metaIDStr := chi.URLParam(r, "id")
-	metaID, err := uuid.Parse(metaIDStr)
+	// The {id} param is the Zammad ticket ID (integer) from the parent ticket router.
+	zammadID, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
 		httpserver.RespondError(w, http.StatusBadRequest, "bad_request", "invalid ticket ID")
 		return
 	}
 
 	svc := h.service(r)
-	state, err := svc.GetTicketSLA(r.Context(), metaID)
+	state, err := svc.GetTicketSLAByZammadID(r.Context(), zammadID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			httpserver.RespondError(w, http.StatusNotFound, "not_found", "SLA state not found")
 			return
 		}
-		h.logger.Error("getting ticket SLA", "error", err, "ticket_meta_id", metaID)
+		h.logger.Error("getting ticket SLA", "error", err, "zammad_id", zammadID)
 		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to get SLA state")
 		return
 	}

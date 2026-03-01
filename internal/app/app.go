@@ -25,13 +25,18 @@ import (
 
 	"github.com/wisbric/ticketowl/internal/admin"
 	"github.com/wisbric/ticketowl/internal/authadapter"
+	"github.com/wisbric/ticketowl/internal/comment"
 	"github.com/wisbric/ticketowl/internal/config"
+	"github.com/wisbric/ticketowl/internal/customer"
 	"github.com/wisbric/ticketowl/internal/db"
+	"github.com/wisbric/ticketowl/internal/link"
 	"github.com/wisbric/ticketowl/internal/nightowl"
 	"github.com/wisbric/ticketowl/internal/notification"
 	"github.com/wisbric/ticketowl/internal/seed"
 	"github.com/wisbric/ticketowl/internal/sla"
 	ticketowlmetrics "github.com/wisbric/ticketowl/internal/telemetry"
+	"github.com/wisbric/ticketowl/internal/ticket"
+	"github.com/wisbric/ticketowl/internal/webhook"
 	"github.com/wisbric/ticketowl/internal/worker"
 	"github.com/wisbric/ticketowl/internal/zammad"
 )
@@ -223,6 +228,7 @@ func runAPI(ctx context.Context, cfg *config.Config, logger *slog.Logger, metric
 	// SLA policy routes (authenticated, tenant-scoped).
 	slaHandler := sla.NewHandler(logger)
 	srv.APIRouter.Mount("/admin/sla-policies", slaHandler.PolicyRoutes())
+	srv.APIRouter.Mount("/sla/policies", slaHandler.PolicyRoutes())
 
 	// OIDC admin config endpoints (admin role required).
 	oidcAdminHandler := auth.NewOIDCAdminHandler(authStore, logger, sessionSecret)
@@ -240,6 +246,24 @@ func runAPI(ctx context.Context, cfg *config.Config, logger *slog.Logger, metric
 		r.Use(auth.RequireRole(auth.RoleAdmin))
 		r.Post("/reset", oidcAdminHandler.HandleResetLocalAdmin)
 	})
+
+	// Ticket + nested comment/link routes.
+	ticketHandler := ticket.NewHandler(logger)
+	commentHandler := comment.NewHandler(logger)
+	linkHandler := link.NewHandler(logger)
+	srv.APIRouter.Mount("/tickets", ticketHandler.Routes(&ticket.ChildRoutes{
+		Comments: commentHandler.Routes(),
+		Links:    linkHandler.Routes(),
+		SLA:      slaHandler.TicketSLARoutes(),
+	}))
+
+	// Customer portal.
+	customerHandler := customer.NewHandler(logger)
+	srv.APIRouter.Mount("/portal", customerHandler.Routes())
+
+	// Webhooks.
+	webhookHandler := webhook.NewHandler(rdb, logger)
+	srv.APIRouter.Mount("/webhooks", webhookHandler.Routes())
 
 	httpSrv := &http.Server{
 		Addr:         cfg.ListenAddr(),

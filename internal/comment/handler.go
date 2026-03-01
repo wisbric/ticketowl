@@ -13,20 +13,19 @@ import (
 	"github.com/wisbric/core/pkg/httpserver"
 	"github.com/wisbric/core/pkg/tenant"
 
+	"github.com/wisbric/ticketowl/internal/clientresolver"
 	"github.com/wisbric/ticketowl/internal/zammad"
 )
 
 // Handler provides HTTP handlers for the comment/thread API.
 type Handler struct {
 	logger *slog.Logger
-	zammad ZammadClient
 }
 
 // NewHandler creates a comment Handler.
-func NewHandler(logger *slog.Logger, zammad ZammadClient) *Handler {
+func NewHandler(logger *slog.Logger) *Handler {
 	return &Handler{
 		logger: logger,
-		zammad: zammad,
 	}
 }
 
@@ -40,10 +39,14 @@ func (h *Handler) Routes() chi.Router {
 	return r
 }
 
-func (h *Handler) service(r *http.Request) *Service {
+func (h *Handler) service(r *http.Request) (*Service, error) {
 	conn := tenant.ConnFromContext(r.Context())
+	zClient, err := clientresolver.ZammadClient(r.Context(), conn, h.logger)
+	if err != nil {
+		return nil, err
+	}
 	var store NoteStore = NewStore(conn)
-	return NewService(h.zammad, store, h.logger)
+	return NewService(zClient, store, h.logger), nil
 }
 
 func (h *Handler) ticketID(r *http.Request) (int, bool) {
@@ -61,7 +64,13 @@ func (h *Handler) handleListThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svc := h.service(r)
+	svc, err := h.service(r)
+	if err != nil {
+		h.logger.Error("resolving zammad client", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "zammad not configured")
+		return
+	}
+
 	thread, err := svc.ListThread(r.Context(), ticketID)
 	if err != nil {
 		if zammad.IsNotFound(err) {
@@ -96,7 +105,13 @@ func (h *Handler) handleAddPublicReply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svc := h.service(r)
+	svc, err := h.service(r)
+	if err != nil {
+		h.logger.Error("resolving zammad client", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "zammad not configured")
+		return
+	}
+
 	entry, err := svc.AddPublicReply(r.Context(), ticketID, req)
 	if err != nil {
 		h.logger.Error("adding public reply", "error", err, "ticket_id", ticketID)
@@ -136,7 +151,13 @@ func (h *Handler) handleAddInternalNote(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	svc := h.service(r)
+	svc, err := h.service(r)
+	if err != nil {
+		h.logger.Error("resolving zammad client", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "zammad not configured")
+		return
+	}
+
 	entry, err := svc.AddInternalNote(r.Context(), ticketID, authorID, authorName, req)
 	if err != nil {
 		h.logger.Error("adding internal note", "error", err, "ticket_id", ticketID)

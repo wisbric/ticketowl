@@ -13,20 +13,19 @@ import (
 	"github.com/wisbric/core/pkg/httpserver"
 	"github.com/wisbric/core/pkg/tenant"
 
+	"github.com/wisbric/ticketowl/internal/clientresolver"
 	"github.com/wisbric/ticketowl/internal/zammad"
 )
 
 // Handler provides HTTP handlers for the customer portal.
 type Handler struct {
 	logger *slog.Logger
-	zammad ZammadClient
 }
 
 // NewHandler creates a customer Handler.
-func NewHandler(logger *slog.Logger, zammad ZammadClient) *Handler {
+func NewHandler(logger *slog.Logger) *Handler {
 	return &Handler{
 		logger: logger,
-		zammad: zammad,
 	}
 }
 
@@ -43,10 +42,14 @@ func (h *Handler) Routes() chi.Router {
 }
 
 // service creates a per-request Service from the tenant-scoped connection.
-func (h *Handler) service(r *http.Request) *Service {
+func (h *Handler) service(r *http.Request) (*Service, error) {
 	conn := tenant.ConnFromContext(r.Context())
+	zClient, err := clientresolver.ZammadClient(r.Context(), conn, h.logger)
+	if err != nil {
+		return nil, err
+	}
 	var store CustomerStore = NewStore(conn)
-	return NewService(store, h.zammad, h.logger)
+	return NewService(store, zClient, h.logger), nil
 }
 
 // orgID extracts the org UUID from the authenticated identity.
@@ -62,7 +65,13 @@ func (h *Handler) handleListTickets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svc := h.service(r)
+	svc, err := h.service(r)
+	if err != nil {
+		h.logger.Error("resolving zammad client", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "zammad not configured")
+		return
+	}
+
 	tickets, err := svc.ListMyTickets(r.Context(), *identity.OrgID)
 	if err != nil {
 		h.logger.Error("listing portal tickets", "error", err, "org_id", identity.OrgID)
@@ -88,7 +97,13 @@ func (h *Handler) handleGetTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svc := h.service(r)
+	svc, err := h.service(r)
+	if err != nil {
+		h.logger.Error("resolving zammad client", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "zammad not configured")
+		return
+	}
+
 	detail, err := svc.GetMyTicket(r.Context(), *identity.OrgID, zammadID)
 	if err != nil {
 		if errors.Is(err, ErrForbidden) {
@@ -130,7 +145,13 @@ func (h *Handler) handleReply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svc := h.service(r)
+	svc, err := h.service(r)
+	if err != nil {
+		h.logger.Error("resolving zammad client", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "zammad not configured")
+		return
+	}
+
 	if err := svc.AddReply(r.Context(), *identity.OrgID, zammadID, req.Body); err != nil {
 		if errors.Is(err, ErrForbidden) {
 			httpserver.RespondError(w, http.StatusForbidden, "forbidden", "ticket not accessible")
@@ -161,7 +182,13 @@ func (h *Handler) handleGetArticles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svc := h.service(r)
+	svc, err := h.service(r)
+	if err != nil {
+		h.logger.Error("resolving zammad client", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "zammad not configured")
+		return
+	}
+
 	articles, err := svc.GetLinkedArticles(r.Context(), *identity.OrgID, zammadID)
 	if err != nil {
 		if errors.Is(err, ErrForbidden) {

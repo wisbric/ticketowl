@@ -124,6 +124,25 @@ func scanPolicyRow(row pgx.Row) (*Policy, error) {
 
 // --- SLA States ---
 
+// GetStateByZammadID returns the SLA state for a ticket identified by its Zammad ID.
+func (s *Store) GetStateByZammadID(ctx context.Context, zammadID int) (*State, error) {
+	var st State
+	err := s.dbtx.QueryRow(ctx,
+		`SELECT ss.id, ss.ticket_meta_id, ss.response_due_at, ss.resolution_due_at,
+		        ss.response_met_at, ss.first_breach_alerted_at, ss.state, ss.paused,
+		        ss.paused_at, ss.accumulated_pause_secs, ss.updated_at
+		 FROM sla_states ss
+		 JOIN ticket_meta tm ON tm.id = ss.ticket_meta_id
+		 WHERE tm.zammad_id = $1`, zammadID).
+		Scan(&st.ID, &st.TicketMetaID, &st.ResponseDueAt, &st.ResolutionDueAt,
+			&st.ResponseMetAt, &st.FirstBreachAlertedAt, &st.Label,
+			&st.Paused, &st.PausedAt, &st.AccumulatedPauseSecs, &st.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &st, nil
+}
+
 // GetStateByTicketMetaID returns the SLA state for a ticket.
 func (s *Store) GetStateByTicketMetaID(ctx context.Context, ticketMetaID uuid.UUID) (*State, error) {
 	var st State

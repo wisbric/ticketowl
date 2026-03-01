@@ -123,6 +123,7 @@ type SLAStore interface {
 	UpdatePolicy(ctx context.Context, id uuid.UUID, req UpdatePolicyRequest) (*Policy, error)
 	DeletePolicy(ctx context.Context, id uuid.UUID) error
 	GetStateByTicketMetaID(ctx context.Context, ticketMetaID uuid.UUID) (*State, error)
+	GetStateByZammadID(ctx context.Context, zammadID int) (*State, error)
 	UpsertState(ctx context.Context, state *State) error
 }
 
@@ -175,11 +176,20 @@ func (s *Service) DeletePolicy(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// GetTicketSLA returns the SLA state for a ticket.
+// GetTicketSLA returns the SLA state for a ticket by meta ID.
 func (s *Service) GetTicketSLA(ctx context.Context, ticketMetaID uuid.UUID) (*State, error) {
 	state, err := s.store.GetStateByTicketMetaID(ctx, ticketMetaID)
 	if err != nil {
 		return nil, fmt.Errorf("getting SLA state: %w", err)
+	}
+	return state, nil
+}
+
+// GetTicketSLAByZammadID returns the SLA state for a ticket by Zammad ID.
+func (s *Service) GetTicketSLAByZammadID(ctx context.Context, zammadID int) (*State, error) {
+	state, err := s.store.GetStateByZammadID(ctx, zammadID)
+	if err != nil {
+		return nil, fmt.Errorf("getting SLA state by zammad ID: %w", err)
 	}
 	return state, nil
 }

@@ -9,17 +9,15 @@ import (
 
 // Handler provides HTTP handlers for inbound webhooks.
 type Handler struct {
-	redis         *redis.Client
-	webhookSecret string
-	logger        *slog.Logger
+	redis  *redis.Client
+	logger *slog.Logger
 }
 
 // NewHandler creates a webhook Handler.
-func NewHandler(rdb *redis.Client, webhookSecret string, logger *slog.Logger) *Handler {
+func NewHandler(rdb *redis.Client, logger *slog.Logger) *Handler {
 	return &Handler{
-		redis:         rdb,
-		webhookSecret: webhookSecret,
-		logger:        logger,
+		redis:  rdb,
+		logger: logger,
 	}
 }
 
@@ -27,7 +25,7 @@ func NewHandler(rdb *redis.Client, webhookSecret string, logger *slog.Logger) *H
 // Mounted at /api/v1/webhooks.
 func (h *Handler) Routes() chi.Router {
 	r := chi.NewRouter()
-	r.Post("/zammad", HandleZammad(h.redis, h.webhookSecret, h.logger))
+	r.Post("/zammad", HandleZammad(h.redis, DBSecretResolver(h.logger), h.logger))
 	r.Post("/nightowl", HandleNightOwl(h.redis, h.logger))
 	return r
 }

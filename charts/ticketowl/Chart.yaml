@@ -2,8 +2,8 @@ apiVersion: v2
 name: ticketowl
 description: TicketOwl — Ticket Management Portal for the NightOwl Platform
 type: application
-version: 0.1.13
-appVersion: "0.1.13"
+version: 0.1.14
+appVersion: "0.1.14"
 maintainers:
   - name: Wisbric
     url: https://wisbric.com

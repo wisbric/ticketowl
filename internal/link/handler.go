@@ -16,22 +16,19 @@ import (
 	"github.com/wisbric/core/pkg/tenant"
 
 	"github.com/wisbric/ticketowl/internal/bookowl"
+	"github.com/wisbric/ticketowl/internal/clientresolver"
 	"github.com/wisbric/ticketowl/internal/nightowl"
 )
 
 // Handler provides HTTP handlers for the links API.
 type Handler struct {
-	logger   *slog.Logger
-	nightowl NightOwlClient
-	bookowl  BookOwlClient
+	logger *slog.Logger
 }
 
 // NewHandler creates a link Handler.
-func NewHandler(logger *slog.Logger, nightowl NightOwlClient, bookowl BookOwlClient) *Handler {
+func NewHandler(logger *slog.Logger) *Handler {
 	return &Handler{
-		logger:   logger,
-		nightowl: nightowl,
-		bookowl:  bookowl,
+		logger: logger,
 	}
 }
 
@@ -47,11 +44,28 @@ func (h *Handler) Routes() chi.Router {
 	return r
 }
 
-// service creates a per-request Service.
-func (h *Handler) service(r *http.Request) *Service {
+// service creates a per-request Service by resolving NightOwl + BookOwl clients from the tenant DB.
+func (h *Handler) service(r *http.Request) (*Service, error) {
 	conn := tenant.ConnFromContext(r.Context())
 	var store LinkStore = NewStore(conn)
-	return NewService(store, h.nightowl, h.bookowl, h.logger)
+
+	// Resolve NightOwl client (optional — may not be configured).
+	var noClient NightOwlClient
+	if nc, err := clientresolver.NightOwlClient(r.Context(), conn, h.logger); err == nil {
+		noClient = nc
+	} else {
+		h.logger.Info("nightowl not configured for link service", "error", err)
+	}
+
+	// Resolve BookOwl client (optional — may not be configured).
+	var boClient BookOwlClient
+	if bc, err := clientresolver.BookOwlClient(r.Context(), conn, h.logger); err == nil {
+		boClient = bc
+	} else {
+		h.logger.Info("bookowl not configured for link service", "error", err)
+	}
+
+	return NewService(store, noClient, boClient, h.logger), nil
 }
 
 func (h *Handler) handleGetLinks(w http.ResponseWriter, r *http.Request) {
@@ -61,7 +75,13 @@ func (h *Handler) handleGetLinks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	svc := h.service(r)
+	svc, err := h.service(r)
+	if err != nil {
+		h.logger.Error("resolving clients for links", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to initialize link service")
+		return
+	}
+
 	links, err := svc.GetLinks(r.Context(), zammadID)
 	if err != nil {
 		h.logger.Error("getting links", "error", err, "zammad_id", zammadID)
@@ -91,7 +111,13 @@ func (h *Handler) handleLinkIncident(w http.ResponseWriter, r *http.Request) {
 
 	linkedBy := callerUUID(r)
 
-	svc := h.service(r)
+	svc, err := h.service(r)
+	if err != nil {
+		h.logger.Error("resolving clients for links", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to initialize link service")
+		return
+	}
+
 	link, err := svc.LinkIncident(r.Context(), zammadID, req.IncidentID, linkedBy)
 	if err != nil {
 		if nightowl.IsNotFound(err) {
@@ -119,7 +145,13 @@ func (h *Handler) handleUnlinkIncident(w http.ResponseWriter, r *http.Request) {
 
 	incidentID := chi.URLParam(r, "incident_id")
 
-	svc := h.service(r)
+	svc, err := h.service(r)
+	if err != nil {
+		h.logger.Error("resolving clients for links", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to initialize link service")
+		return
+	}
+
 	if err := svc.UnlinkIncident(r.Context(), zammadID, incidentID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			httpserver.RespondError(w, http.StatusNotFound, "not_found", "link not found")
@@ -152,7 +184,13 @@ func (h *Handler) handleLinkArticle(w http.ResponseWriter, r *http.Request) {
 
 	linkedBy := callerUUID(r)
 
-	svc := h.service(r)
+	svc, err := h.service(r)
+	if err != nil {
+		h.logger.Error("resolving clients for links", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to initialize link service")
+		return
+	}
+
 	link, err := svc.LinkArticle(r.Context(), zammadID, req.ArticleID, linkedBy)
 	if err != nil {
 		if bookowl.IsNotFound(err) {
@@ -180,7 +218,13 @@ func (h *Handler) handleUnlinkArticle(w http.ResponseWriter, r *http.Request) {
 
 	articleID := chi.URLParam(r, "article_id")
 
-	svc := h.service(r)
+	svc, err := h.service(r)
+	if err != nil {
+		h.logger.Error("resolving clients for links", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to initialize link service")
+		return
+	}
+
 	if err := svc.UnlinkArticle(r.Context(), zammadID, articleID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			httpserver.RespondError(w, http.StatusNotFound, "not_found", "link not found")

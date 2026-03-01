@@ -24,6 +24,13 @@ func testLogger() *slog.Logger {
 	return slog.Default()
 }
 
+// staticSecret returns a SecretResolver that always returns the given secret.
+func staticSecret(secret string) webhook.SecretResolver {
+	return func(r *http.Request) (string, error) {
+		return secret, nil
+	}
+}
+
 func testTenantContext() context.Context {
 	return tenant.NewContext(context.Background(), &tenant.Info{
 		ID:     uuid.New(),
@@ -81,7 +88,7 @@ func TestZammadWebhook_ValidSignature(t *testing.T) {
 	req = req.WithContext(testTenantContext())
 
 	rr := httptest.NewRecorder()
-	handler := webhook.HandleZammad(rdb, testSecret, testLogger())
+	handler := webhook.HandleZammad(rdb, staticSecret(testSecret), testLogger())
 	handler(rr, req)
 
 	if rr.Code != http.StatusOK {
@@ -133,7 +140,7 @@ func TestZammadWebhook_InvalidSignature(t *testing.T) {
 	req = req.WithContext(testTenantContext())
 
 	rr := httptest.NewRecorder()
-	handler := webhook.HandleZammad(rdb, testSecret, testLogger())
+	handler := webhook.HandleZammad(rdb, staticSecret(testSecret), testLogger())
 	handler(rr, req)
 
 	if rr.Code != http.StatusUnauthorized {
@@ -155,7 +162,7 @@ func TestZammadWebhook_TamperedBody(t *testing.T) {
 	req = req.WithContext(testTenantContext())
 
 	rr := httptest.NewRecorder()
-	handler := webhook.HandleZammad(rdb, testSecret, testLogger())
+	handler := webhook.HandleZammad(rdb, staticSecret(testSecret), testLogger())
 	handler(rr, req)
 
 	if rr.Code != http.StatusUnauthorized {
@@ -178,7 +185,7 @@ func TestZammadWebhook_WrongSecret(t *testing.T) {
 	req = req.WithContext(testTenantContext())
 
 	rr := httptest.NewRecorder()
-	handler := webhook.HandleZammad(rdb, testSecret, testLogger())
+	handler := webhook.HandleZammad(rdb, staticSecret(testSecret), testLogger())
 	handler(rr, req)
 
 	if rr.Code != http.StatusUnauthorized {
@@ -200,7 +207,7 @@ func TestZammadWebhook_MissingSignature(t *testing.T) {
 	req = req.WithContext(testTenantContext())
 
 	rr := httptest.NewRecorder()
-	handler := webhook.HandleZammad(rdb, testSecret, testLogger())
+	handler := webhook.HandleZammad(rdb, staticSecret(testSecret), testLogger())
 	handler(rr, req)
 
 	if rr.Code != http.StatusUnauthorized {
@@ -222,7 +229,7 @@ func TestZammadWebhook_MissingEvent(t *testing.T) {
 	req = req.WithContext(testTenantContext())
 
 	rr := httptest.NewRecorder()
-	handler := webhook.HandleZammad(rdb, testSecret, testLogger())
+	handler := webhook.HandleZammad(rdb, staticSecret(testSecret), testLogger())
 	handler(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
@@ -244,7 +251,7 @@ func TestZammadWebhook_MissingTicket(t *testing.T) {
 	req = req.WithContext(testTenantContext())
 
 	rr := httptest.NewRecorder()
-	handler := webhook.HandleZammad(rdb, testSecret, testLogger())
+	handler := webhook.HandleZammad(rdb, staticSecret(testSecret), testLogger())
 	handler(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
