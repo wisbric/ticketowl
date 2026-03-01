@@ -187,6 +187,48 @@ Avoids duplicating the full env block in both deployment templates.
       name: {{ include "ticketowl.fullname" . }}
       key: TICKETOWL_BOOKOWL_API_URL
 {{- end }}
+{{- if .Values.config.zammadUrl }}
+- name: TICKETOWL_ZAMMAD_URL
+  valueFrom:
+    configMapKeyRef:
+      name: {{ include "ticketowl.fullname" . }}
+      key: TICKETOWL_ZAMMAD_URL
+{{- end }}
+{{- if .Values.secrets.zammadToken }}
+- name: TICKETOWL_ZAMMAD_TOKEN
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "ticketowl.secretName" . }}
+      key: TICKETOWL_ZAMMAD_TOKEN
+{{- end }}
+{{- if .Values.secrets.oidcClientSecret }}
+- name: TICKETOWL_OIDC_CLIENT_SECRET
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "ticketowl.secretName" . }}
+      key: TICKETOWL_OIDC_CLIENT_SECRET
+{{- end }}
+{{- if .Values.secrets.oidcRedirectUrl }}
+- name: TICKETOWL_OIDC_REDIRECT_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "ticketowl.secretName" . }}
+      key: TICKETOWL_OIDC_REDIRECT_URL
+{{- end }}
+{{- if .Values.config.nightowlUrl }}
+- name: TICKETOWL_NIGHTOWL_URL
+  valueFrom:
+    configMapKeyRef:
+      name: {{ include "ticketowl.fullname" . }}
+      key: TICKETOWL_NIGHTOWL_URL
+{{- end }}
+{{- if .Values.config.bookowlUrl }}
+- name: TICKETOWL_BOOKOWL_URL
+  valueFrom:
+    configMapKeyRef:
+      name: {{ include "ticketowl.fullname" . }}
+      key: TICKETOWL_BOOKOWL_URL
+{{- end }}
 {{- if .Values.config.otelEndpoint }}
 - name: TICKETOWL_OTEL_ENDPOINT
   valueFrom:
