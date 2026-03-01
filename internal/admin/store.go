@@ -57,6 +57,20 @@ func (s *Store) UpsertZammadConfig(ctx context.Context, req UpdateZammadConfigRe
 	return &c, nil
 }
 
+// UpdateZammadPauseStatuses updates only the pause_statuses field.
+func (s *Store) UpdateZammadPauseStatuses(ctx context.Context, statuses []string, updatedBy uuid.UUID) error {
+	tag, err := s.dbtx.Exec(ctx,
+		`UPDATE zammad_config SET pause_statuses = $1, updated_by = $2, updated_at = now()`,
+		statuses, updatedBy)
+	if err != nil {
+		return fmt.Errorf("updating pause_statuses: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
 // --- Integration Keys ---
 
 // GetIntegrationKey returns an integration key by service name.

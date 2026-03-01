@@ -208,6 +208,7 @@ export interface PortalReplyRequest {
 // ── Admin ───────────────────────────────────────────────────────────
 
 export interface ConfigOverview {
+  managed: boolean;
   zammad?: ZammadConfigSummary;
   nightowl?: IntegrationKeySummary;
   bookowl?: IntegrationKeySummary;
@@ -215,6 +216,7 @@ export interface ConfigOverview {
 
 export interface ZammadConfigSummary {
   url: string;
+  has_token: boolean;
   pause_statuses: string[];
   updated_at: string;
 }

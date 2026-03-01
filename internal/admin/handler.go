@@ -27,6 +27,7 @@ type ZammadTester interface {
 type Handler struct {
 	logger       *slog.Logger
 	zammadTester ZammadTester
+	managed      bool
 }
 
 // NewHandler creates an admin Handler.
@@ -40,6 +41,12 @@ func (h *Handler) WithZammadTester(t ZammadTester) *Handler {
 	return h
 }
 
+// WithManaged marks Zammad as a managed (platform-deployed) instance.
+func (h *Handler) WithManaged(managed bool) *Handler {
+	h.managed = managed
+	return h
+}
+
 // Routes returns a chi.Router with all admin routes mounted.
 func (h *Handler) Routes() chi.Router {
 	r := chi.NewRouter()
@@ -48,6 +55,8 @@ func (h *Handler) Routes() chi.Router {
 	r.Get("/config", h.handleGetConfig)
 	r.Put("/config/zammad", h.handleUpdateZammadConfig)
 	r.Post("/config/zammad/test", h.handleTestZammad)
+	r.Post("/config/zammad/test-stored", h.handleTestStoredZammad)
+	r.Put("/config/zammad/pause-statuses", h.handleUpdatePauseStatuses)
 	r.Put("/config/nightowl", h.handleUpdateIntegrationKey("nightowl"))
 	r.Put("/config/bookowl", h.handleUpdateIntegrationKey("bookowl"))
 
@@ -96,7 +105,9 @@ func callerUUID(r *http.Request) uuid.UUID {
 
 func (h *Handler) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	s := h.store(r)
-	overview := ConfigOverview{}
+	overview := ConfigOverview{
+		Managed: h.managed,
+	}
 
 	zammadCfg, err := s.GetZammadConfig(r.Context())
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -107,6 +118,7 @@ func (h *Handler) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	if zammadCfg != nil {
 		overview.Zammad = &ZammadConfigSummary{
 			URL:           zammadCfg.URL,
+			HasToken:      zammadCfg.APIToken != "",
 			PauseStatuses: zammadCfg.PauseStatuses,
 			UpdatedAt:     zammadCfg.UpdatedAt,
 		}
@@ -194,6 +206,65 @@ func (h *Handler) handleTestZammad(w http.ResponseWriter, r *http.Request) {
 	httpserver.Respond(w, http.StatusOK, map[string]any{
 		"success": true,
 	})
+}
+
+func (h *Handler) handleTestStoredZammad(w http.ResponseWriter, r *http.Request) {
+	if h.zammadTester == nil {
+		httpserver.RespondError(w, http.StatusServiceUnavailable, "unavailable", "zammad test not configured")
+		return
+	}
+
+	s := h.store(r)
+	cfg, err := s.GetZammadConfig(r.Context())
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			httpserver.RespondError(w, http.StatusNotFound, "not_found", "zammad not configured")
+			return
+		}
+		h.logger.Error("getting zammad config for test", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to get config")
+		return
+	}
+	if cfg.URL == "" || cfg.APIToken == "" {
+		httpserver.RespondError(w, http.StatusBadRequest, "bad_request", "zammad url or token not configured")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	if err := h.zammadTester.TestConnection(ctx, cfg.URL, cfg.APIToken); err != nil {
+		httpserver.Respond(w, http.StatusOK, map[string]any{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	httpserver.Respond(w, http.StatusOK, map[string]any{
+		"success": true,
+	})
+}
+
+func (h *Handler) handleUpdatePauseStatuses(w http.ResponseWriter, r *http.Request) {
+	var req UpdateZammadPauseStatusesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpserver.RespondError(w, http.StatusBadRequest, "bad_request", "invalid request body")
+		return
+	}
+
+	s := h.store(r)
+	if err := s.UpdateZammadPauseStatuses(r.Context(), req.PauseStatuses, callerUUID(r)); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			httpserver.RespondError(w, http.StatusNotFound, "not_found", "zammad not configured")
+			return
+		}
+		h.logger.Error("updating pause statuses", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to update pause statuses")
+		return
+	}
+
+	httpserver.Respond(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (h *Handler) handleUpdateIntegrationKey(service string) http.HandlerFunc {

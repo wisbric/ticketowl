@@ -32,6 +32,11 @@ type TestZammadRequest struct {
 	APIToken string `json:"api_token"`
 }
 
+// UpdateZammadPauseStatusesRequest is the payload for updating only pause statuses.
+type UpdateZammadPauseStatusesRequest struct {
+	PauseStatuses []string `json:"pause_statuses"`
+}
+
 // IntegrationKey represents a NightOwl or BookOwl integration key.
 type IntegrationKey struct {
 	ID        uuid.UUID `json:"id"`
@@ -134,6 +139,7 @@ type UpdateGroupRosterMappingRequest struct {
 
 // ConfigOverview is the combined configuration returned by GET /admin/config.
 type ConfigOverview struct {
+	Managed  bool                   `json:"managed"`
 	Zammad   *ZammadConfigSummary   `json:"zammad,omitempty"`
 	NightOwl *IntegrationKeySummary `json:"nightowl,omitempty"`
 	BookOwl  *IntegrationKeySummary `json:"bookowl,omitempty"`
@@ -142,6 +148,7 @@ type ConfigOverview struct {
 // ZammadConfigSummary is the public view of Zammad config (no secrets).
 type ZammadConfigSummary struct {
 	URL           string    `json:"url"`
+	HasToken      bool      `json:"has_token"`
 	PauseStatuses []string  `json:"pause_statuses"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }
@@ -156,6 +163,7 @@ type IntegrationKeySummary struct {
 type AdminStore interface {
 	GetZammadConfig(ctx context.Context) (*ZammadConfig, error)
 	UpsertZammadConfig(ctx context.Context, req UpdateZammadConfigRequest, updatedBy uuid.UUID) (*ZammadConfig, error)
+	UpdateZammadPauseStatuses(ctx context.Context, statuses []string, updatedBy uuid.UUID) error
 	GetIntegrationKey(ctx context.Context, service string) (*IntegrationKey, error)
 	UpsertIntegrationKey(ctx context.Context, service string, req UpdateIntegrationKeyRequest) (*IntegrationKey, error)
 	ListCustomerOrgs(ctx context.Context) ([]CustomerOrg, error)

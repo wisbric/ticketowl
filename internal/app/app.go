@@ -33,6 +33,7 @@ import (
 	"github.com/wisbric/ticketowl/internal/sla"
 	ticketowlmetrics "github.com/wisbric/ticketowl/internal/telemetry"
 	"github.com/wisbric/ticketowl/internal/worker"
+	"github.com/wisbric/ticketowl/internal/zammad"
 )
 
 // Run is the main application entry point. It reads config, connects to
@@ -214,7 +215,9 @@ func runAPI(ctx context.Context, cfg *config.Config, logger *slog.Logger, metric
 	srv.APIRouter.Get("/status", srv.HandleStatus)
 
 	// Admin routes (authenticated, tenant-scoped).
-	adminHandler := admin.NewHandler(logger)
+	adminHandler := admin.NewHandler(logger).
+		WithZammadTester(zammad.Tester{}).
+		WithManaged(cfg.ZammadURL != "")
 	srv.APIRouter.Mount("/admin", adminHandler.Routes())
 
 	// SLA policy routes (authenticated, tenant-scoped).
