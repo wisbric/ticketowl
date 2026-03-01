@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/wisbric/core/pkg/auth"
+	"github.com/wisbric/core/pkg/platform"
 	"github.com/wisbric/core/pkg/tenant"
 
 	"github.com/wisbric/ticketowl/internal/db"
@@ -53,7 +54,14 @@ func Run(ctx context.Context, db *pgxpool.Pool, databaseURL, migrationsDir strin
 	exists = err == nil
 
 	if exists {
-		logger.Info("seed: acme tenant already exists, ensuring local admin")
+		logger.Info("seed: acme tenant already exists, running pending migrations")
+		tenantURL, err := tenant.WithSearchPath(databaseURL, tenant.SchemaName("acme"))
+		if err != nil {
+			return fmt.Errorf("building tenant URL: %w", err)
+		}
+		if err := platform.RunTenantMigrations(tenantURL, migrationsDir); err != nil {
+			return fmt.Errorf("running tenant migrations: %w", err)
+		}
 		if err := ensureLocalAdmin(ctx, db, tenantID, logger, adminPassword); err != nil {
 			return err
 		}
