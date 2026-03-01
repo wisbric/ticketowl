@@ -24,7 +24,7 @@ func (Tester) TestConnection(ctx context.Context, url, apiToken string) error {
 	if err != nil {
 		return fmt.Errorf("connecting to Zammad: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return fmt.Errorf("authentication failed (HTTP %d)", resp.StatusCode)
