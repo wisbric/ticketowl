@@ -123,7 +123,7 @@ type Article struct {
 
 type ArticleCreate struct {
     TicketID    int
-    TypeID      int    // 10 = note, 9 = web
+    TypeID      int    // 10 = note, 11 = web
     Body        string
     ContentType string
     Internal    bool

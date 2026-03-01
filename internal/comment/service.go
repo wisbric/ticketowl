@@ -81,7 +81,7 @@ func (s *Service) AddPublicReply(ctx context.Context, zammadTicketID int, req Ad
 
 	article, err := s.zammad.CreateArticle(ctx, zammad.ArticleCreate{
 		TicketID:    zammadTicketID,
-		TypeID:      9, // web
+		TypeID:      11, // web
 		Body:        req.Body,
 		ContentType: contentType,
 		Internal:    false,
