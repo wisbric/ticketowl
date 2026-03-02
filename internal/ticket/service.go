@@ -99,13 +99,17 @@ func (s *Service) List(ctx context.Context, opts ListOptions) ([]EnrichedTicket,
 }
 
 // Create creates a ticket in Zammad and records metadata in TicketOwl.
-func (s *Service) Create(ctx context.Context, req CreateRequest) (*EnrichedTicket, error) {
+func (s *Service) Create(ctx context.Context, req CreateRequest, callerEmail string) (*EnrichedTicket, error) {
 	zReq := zammad.TicketCreateRequest{
 		Title:      req.Title,
 		GroupID:    req.GroupID,
 		CustomerID: req.CustomerID,
 		StateID:    req.StateID,
 		PriorityID: req.PriorityID,
+	}
+	// If no customer_id provided, use the caller's email to let Zammad resolve the customer.
+	if zReq.CustomerID == 0 && callerEmail != "" {
+		zReq.Customer = callerEmail
 	}
 
 	if req.Body != "" {

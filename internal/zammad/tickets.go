@@ -45,6 +45,7 @@ type TicketCreateRequest struct {
 	Title      string         `json:"title"`
 	GroupID    int            `json:"group_id"`
 	CustomerID int            `json:"customer_id,omitempty"`
+	Customer   string         `json:"customer,omitempty"` // email — Zammad will look up or create the customer
 	StateID    int            `json:"state_id,omitempty"`
 	PriorityID int            `json:"priority_id,omitempty"`
 	Article    *ArticleCreate `json:"article,omitempty"`

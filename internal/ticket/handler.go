@@ -167,7 +167,12 @@ func (h *Handler) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ticket, err := svc.Create(r.Context(), req)
+	callerEmail := ""
+	if identity := auth.FromContext(r.Context()); identity != nil {
+		callerEmail = identity.Email
+	}
+
+	ticket, err := svc.Create(r.Context(), req, callerEmail)
 	if err != nil {
 		h.logger.Error("creating ticket", "error", err)
 		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to create ticket")
