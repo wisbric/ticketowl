@@ -288,7 +288,7 @@ func TestCreate_StoresMetadata(t *testing.T) {
 	got, err := svc.Create(context.Background(), ticket.CreateRequest{
 		Title:   "New ticket",
 		GroupID: 1,
-	})
+	}, "test@example.com")
 	if err != nil {
 		t.Fatalf("Create: unexpected error: %v", err)
 	}
