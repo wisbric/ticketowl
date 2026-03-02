@@ -14,7 +14,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SLABadge } from "@/components/tickets/sla-badge";
 import { Plus } from "lucide-react";
-import type { EnrichedTicket, CreateTicketRequest } from "@/types/api";
+import type { EnrichedTicket, CreateTicketRequest, TicketMetadata } from "@/types/api";
 
 export function TicketListPage() {
   useTitle("The Perch");
@@ -24,13 +24,19 @@ export function TicketListPage() {
   const [priorityFilter, setPriorityFilter] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState("");
-  const [groupId, setGroupId] = useState("1");
+  const [groupId, setGroupId] = useState("");
   const [priority, setPriority] = useState("");
   const [body, setBody] = useState("");
 
   const { data: tickets, isLoading } = useQuery({
     queryKey: ["tickets"],
     queryFn: () => api.get<EnrichedTicket[]>("/tickets"),
+  });
+
+  const { data: metadata } = useQuery({
+    queryKey: ["ticket-metadata"],
+    queryFn: () => api.get<TicketMetadata>("/tickets/metadata"),
+    staleTime: 5 * 60 * 1000,
   });
 
   const createMutation = useMutation({
@@ -79,10 +85,9 @@ export function TicketListPage() {
           className="w-40"
         >
           <option value="">All Statuses</option>
-          <option value="new">New</option>
-          <option value="open">Open</option>
-          <option value="pending reminder">Pending</option>
-          <option value="closed">Closed</option>
+          {(metadata?.states ?? []).map((s) => (
+            <option key={s.id} value={s.name.toLowerCase()}>{s.name}</option>
+          ))}
         </Select>
 
         <Select
@@ -91,10 +96,9 @@ export function TicketListPage() {
           className="w-40"
         >
           <option value="">All Priorities</option>
-          <option value="1 urgent">Urgent</option>
-          <option value="2 high">High</option>
-          <option value="3 normal">Normal</option>
-          <option value="4 low">Low</option>
+          {(metadata?.priorities ?? []).map((p) => (
+            <option key={p.id} value={p.name.toLowerCase()}>{p.name}</option>
+          ))}
         </Select>
       </div>
 
@@ -174,23 +178,21 @@ export function TicketListPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Group ID</label>
-              <Input
-                type="number"
-                value={groupId}
-                onChange={(e) => setGroupId(e.target.value)}
-                min="1"
-                required
-              />
+              <label className="mb-1 block text-sm font-medium">Group</label>
+              <Select value={groupId} onChange={(e) => setGroupId(e.target.value)} required>
+                <option value="">Select group...</option>
+                {(metadata?.groups ?? []).map((g) => (
+                  <option key={g.id} value={String(g.id)}>{g.name}</option>
+                ))}
+              </Select>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">Priority</label>
               <Select value={priority} onChange={(e) => setPriority(e.target.value)}>
                 <option value="">Default</option>
-                <option value="1">Urgent</option>
-                <option value="2">High</option>
-                <option value="3">Normal</option>
-                <option value="4">Low</option>
+                {(metadata?.priorities ?? []).map((p) => (
+                  <option key={p.id} value={String(p.id)}>{p.name}</option>
+                ))}
               </Select>
             </div>
             <div>

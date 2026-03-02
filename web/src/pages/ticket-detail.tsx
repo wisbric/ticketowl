@@ -23,6 +23,7 @@ import type {
   TicketLinks,
   SLAState,
   PostMortemResult,
+  TicketMetadata,
 } from "@/types/api";
 
 export function TicketDetailPage() {
@@ -53,6 +54,21 @@ export function TicketDetailPage() {
   const { data: sla } = useQuery({
     queryKey: ["ticket-sla", id],
     queryFn: () => api.get<SLAState>(`/tickets/${id}/sla`),
+  });
+
+  const { data: metadata } = useQuery({
+    queryKey: ["ticket-metadata"],
+    queryFn: () => api.get<TicketMetadata>("/tickets/metadata"),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: authConfig } = useQuery({
+    queryKey: ["auth-config"],
+    queryFn: async () => {
+      const res = await fetch("/auth/config");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
   useTitle(ticket ? `#${ticket.number} ${ticket.title}` : "Ticket");
@@ -122,20 +138,18 @@ export function TicketDetailPage() {
             onChange={(e) => updateMutation.mutate({ state_id: Number(e.target.value) })}
             className="w-36"
           >
-            <option value="1">New</option>
-            <option value="2">Open</option>
-            <option value="3">Pending</option>
-            <option value="4">Closed</option>
+            {(metadata?.states ?? []).map((s) => (
+              <option key={s.id} value={String(s.id)}>{s.name}</option>
+            ))}
           </Select>
           <Select
             value={String(ticket.priority_id)}
             onChange={(e) => updateMutation.mutate({ priority_id: Number(e.target.value) })}
             className="w-32"
           >
-            <option value="1">Urgent</option>
-            <option value="2">High</option>
-            <option value="3">Normal</option>
-            <option value="4">Low</option>
+            {(metadata?.priorities ?? []).map((p) => (
+              <option key={p.id} value={String(p.id)}>{p.name}</option>
+            ))}
           </Select>
           {sla && <SLABadge state={sla.state} />}
           {updateMutation.isPending && (
@@ -224,7 +238,7 @@ export function TicketDetailPage() {
                   {links.incidents.map((inc) => (
                     <li key={inc.id} className="flex items-center gap-2 text-sm">
                       <a
-                        href={`http://localhost:3000/incidents/${inc.incident_id}`}
+                        href={`${authConfig?.nightowl_url || ""}/incidents/${inc.incident_id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-1 text-accent hover:underline"
@@ -260,7 +274,7 @@ export function TicketDetailPage() {
                   {links.articles.map((art) => (
                     <li key={art.id} className="text-sm">
                       <a
-                        href={`http://localhost:3001/articles/${art.article_slug}`}
+                        href={`${authConfig?.bookowl_url || ""}/articles/${art.article_slug}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-1 text-accent hover:underline"

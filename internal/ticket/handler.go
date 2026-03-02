@@ -45,6 +45,7 @@ func (h *Handler) Routes(children *ChildRoutes) chi.Router {
 	r := chi.NewRouter()
 	r.Get("/", h.handleList)
 	r.Post("/", h.handleCreate)
+	r.Get("/metadata", h.handleMetadata)
 	r.Route("/{id}", func(r chi.Router) {
 		r.Get("/", h.handleGet)
 		r.Patch("/", h.handleUpdate)
@@ -316,4 +317,48 @@ func (h *Handler) handleCreatePostMortem(w http.ResponseWriter, r *http.Request)
 	}
 
 	httpserver.Respond(w, http.StatusCreated, result)
+}
+
+// TicketMetadata holds Zammad states, priorities, and groups for the frontend.
+type TicketMetadata struct {
+	States     []zammad.TicketState    `json:"states"`
+	Priorities []zammad.TicketPriority `json:"priorities"`
+	Groups     []zammad.TicketGroup    `json:"groups"`
+}
+
+func (h *Handler) handleMetadata(w http.ResponseWriter, r *http.Request) {
+	conn := tenant.ConnFromContext(r.Context())
+	zClient, err := clientresolver.ZammadClient(r.Context(), conn, h.logger)
+	if err != nil {
+		h.logger.Error("resolving zammad client for metadata", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "zammad not configured")
+		return
+	}
+
+	states, err := zClient.ListStates(r.Context())
+	if err != nil {
+		h.logger.Error("listing states", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to list states")
+		return
+	}
+
+	priorities, err := zClient.ListPriorities(r.Context())
+	if err != nil {
+		h.logger.Error("listing priorities", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to list priorities")
+		return
+	}
+
+	groups, err := zClient.ListGroups(r.Context())
+	if err != nil {
+		h.logger.Error("listing groups", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to list groups")
+		return
+	}
+
+	httpserver.Respond(w, http.StatusOK, TicketMetadata{
+		States:     states,
+		Priorities: priorities,
+		Groups:     groups,
+	})
 }

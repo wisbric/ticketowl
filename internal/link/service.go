@@ -71,6 +71,10 @@ func (s *Service) GetLinks(ctx context.Context, zammadID int) (*TicketLinks, err
 
 // LinkIncident validates an incident against NightOwl and creates a link.
 func (s *Service) LinkIncident(ctx context.Context, zammadID int, incidentIDStr string, linkedBy uuid.UUID) (*IncidentLink, error) {
+	if s.nightowl == nil {
+		return nil, fmt.Errorf("nightowl integration not configured")
+	}
+
 	// Validate the incident exists in NightOwl.
 	incident, err := s.nightowl.GetIncident(ctx, incidentIDStr)
 	if err != nil {
@@ -112,6 +116,10 @@ func (s *Service) UnlinkIncident(ctx context.Context, zammadID int, incidentIDSt
 
 // LinkArticle validates an article against BookOwl and creates a link.
 func (s *Service) LinkArticle(ctx context.Context, zammadID int, articleIDStr string, linkedBy uuid.UUID) (*ArticleLink, error) {
+	if s.bookowl == nil {
+		return nil, fmt.Errorf("bookowl integration not configured")
+	}
+
 	// Validate the article exists in BookOwl.
 	article, err := s.bookowl.GetArticle(ctx, articleIDStr)
 	if err != nil {

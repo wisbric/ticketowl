@@ -38,6 +38,19 @@ export interface UpdateTicketRequest {
   group_id?: number;
 }
 
+// ── Ticket Metadata (from Zammad) ───────────────────────────────────
+
+export interface TicketMetadata {
+  states: TicketOption[];
+  priorities: TicketOption[];
+  groups: TicketOption[];
+}
+
+export interface TicketOption {
+  id: number;
+  name: string;
+}
+
 // ── Comments / Thread ───────────────────────────────────────────────
 
 export interface ThreadEntry {

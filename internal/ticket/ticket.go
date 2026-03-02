@@ -75,7 +75,7 @@ type ListOptions struct {
 type CreateRequest struct {
 	Title      string `json:"title"`
 	GroupID    int    `json:"group_id"`
-	CustomerID int    `json:"customer_id"`
+	CustomerID int    `json:"customer_id,omitempty"`
 	StateID    int    `json:"state_id,omitempty"`
 	PriorityID int    `json:"priority_id,omitempty"`
 	Body       string `json:"body,omitempty"`

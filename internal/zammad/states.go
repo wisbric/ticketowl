@@ -47,3 +47,24 @@ func (c *Client) ListPriorities(ctx context.Context) ([]TicketPriority, error) {
 
 	return priorities, nil
 }
+
+// TicketGroup represents a Zammad group (ticket assignment group).
+type TicketGroup struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+// ListGroups returns all groups from Zammad.
+func (c *Client) ListGroups(ctx context.Context) ([]TicketGroup, error) {
+	body, err := c.get(ctx, "/api/v1/groups")
+	if err != nil {
+		return nil, fmt.Errorf("listing groups: %w", err)
+	}
+
+	var groups []TicketGroup
+	if err := json.Unmarshal(body, &groups); err != nil {
+		return nil, fmt.Errorf("decoding groups: %w", err)
+	}
+
+	return groups, nil
+}
