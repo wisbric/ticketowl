@@ -147,7 +147,7 @@ github.com/redis/go-redis/v9/internal/routing
 github.com/redis/go-redis/v9/internal/util
 github.com/redis/go-redis/v9/maintnotifications
 github.com/redis/go-redis/v9/push
-# github.com/wisbric/core v0.1.4-0.20260228053726-bfab70636620
+# github.com/wisbric/core v0.1.4-0.20260302084500-d306f9cc45fb
 ## explicit; go 1.24.0
 github.com/wisbric/core/pkg/auth
 github.com/wisbric/core/pkg/authadapter

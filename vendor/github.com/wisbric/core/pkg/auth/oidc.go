@@ -11,13 +11,15 @@ import (
 
 // OIDCClaims are the JWT claims we extract for authentication.
 type OIDCClaims struct {
-	Subject           string `json:"sub"`
-	Email             string `json:"email"`
-	Name              string `json:"name"`
-	PreferredUsername string `json:"preferred_username"`
-	TenantSlug        string `json:"tenant_slug"`
-	Role              string `json:"role"`
-	OrgID             string `json:"org_id"`
+	Subject           string   `json:"sub"`
+	Email             string   `json:"email"`
+	Name              string   `json:"name"`
+	PreferredUsername string   `json:"preferred_username"`
+	TenantSlug        string   `json:"tenant_slug"`
+	Role              string   `json:"role"`
+	OrgID             string   `json:"org_id"`
+	RealmRoles        []string `json:"realm_roles"`
+	Groups            []string `json:"groups"`
 }
 
 // DisplayName returns the best available display name from the OIDC claims,
@@ -87,12 +89,7 @@ func (a *OIDCAuthenticator) Authenticate(ctx context.Context, bearerToken string
 	if claims.TenantSlug == "" {
 		return nil, fmt.Errorf("token missing tenant_slug claim")
 	}
-	if claims.Role == "" {
-		claims.Role = RoleEngineer
-	}
-	if !IsValidRole(claims.Role) {
-		claims.Role = RoleEngineer
-	}
+	claims.resolveRole()
 
 	return &claims, nil
 }
@@ -114,12 +111,40 @@ func (a *OIDCAuthenticator) AuthenticateCallbackToken(ctx context.Context, rawTo
 	if claims.Subject == "" {
 		return nil, fmt.Errorf("token missing sub claim")
 	}
-	if claims.Role == "" {
-		claims.Role = RoleEngineer
-	}
-	if !IsValidRole(claims.Role) {
-		claims.Role = RoleEngineer
-	}
+	claims.resolveRole()
 
 	return &claims, nil
+}
+
+// resolveRole determines the user's role from the available JWT claims.
+// It checks (in order): explicit "role" claim, realm_roles array, groups array.
+func (c *OIDCClaims) resolveRole() {
+	if c.Role != "" && IsValidRole(c.Role) {
+		return
+	}
+
+	// Check realm_roles for known roles (highest-privilege first).
+	for _, role := range ValidRoles {
+		for _, r := range c.RealmRoles {
+			if r == role {
+				c.Role = role
+				return
+			}
+		}
+	}
+
+	// Check groups for role-like group names (e.g. "/admins" or "admins").
+	groupRoleMap := map[string]string{
+		"admins":   RoleAdmin,
+		"managers": RoleManager,
+	}
+	for _, g := range c.Groups {
+		name := strings.TrimPrefix(g, "/")
+		if role, ok := groupRoleMap[name]; ok {
+			c.Role = role
+			return
+		}
+	}
+
+	c.Role = RoleEngineer
 }
