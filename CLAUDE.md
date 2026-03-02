@@ -29,6 +29,13 @@ All design decisions are captured in `docs/`. Always read the relevant spec befo
 - `docs/10-deployment.md` — Docker Compose, Kubernetes/Helm, CI/CD
 - `docs/11-tasks.md` — Implementation task checklist (work from this)
 
+### Key Internal Packages
+
+- **`internal/clientresolver/`** — Per-tenant client factory. Reads Zammad URL/token, NightOwl/BookOwl integration keys from the tenant DB and returns typed API clients. Used by all handlers at request time (no global client instances).
+- **`internal/zammad/`** — Typed Go client for Zammad REST API (tickets, articles, users, organizations)
+- **`internal/nightowl/`** — Typed Go client for NightOwl REST API (alerts, incidents)
+- **`internal/bookowl/`** — Typed Go client for BookOwl REST API (search, documents)
+
 ## Branding
 
 The product is called **TicketOwl**. It uses the NightOwl design system.

@@ -174,6 +174,7 @@ internal/
   app/                   Application bootstrap and mode routing
   admin/                 Admin API handlers (Zammad config, integration keys)
   authadapter/           Auth storage adapter (implements core auth.Storage)
+  clientresolver/        Per-tenant Zammad/NightOwl/BookOwl client factory
   comment/               Internal notes on tickets
   config/                Configuration loading (extends core BaseConfig)
   customer/              Customer organization management
