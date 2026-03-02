@@ -88,6 +88,14 @@ func (m *mockZammad) SearchTickets(_ context.Context, _ string, _ zammad.ListTic
 	return m.ListTickets(context.Background(), zammad.ListTicketsOptions{})
 }
 
+func (m *mockZammad) SearchUsersByEmail(_ context.Context, _ string) (*zammad.User, error) {
+	return nil, nil // not found — triggers CreateUser
+}
+
+func (m *mockZammad) CreateUser(_ context.Context, email, _, _ string) (*zammad.User, error) {
+	return &zammad.User{ID: 999, Email: email, Active: true}, nil
+}
+
 // --- Mock Ticket Store ---
 
 type mockTicketStore struct {

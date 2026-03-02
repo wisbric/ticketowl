@@ -49,6 +49,28 @@ func (c *Client) GetCurrentUser(ctx context.Context) (*User, error) {
 	return &user, nil
 }
 
+// CreateUser creates a new customer user in Zammad.
+func (c *Client) CreateUser(ctx context.Context, email, firstname, lastname string) (*User, error) {
+	payload := map[string]any{
+		"email":     email,
+		"firstname": firstname,
+		"lastname":  lastname,
+		"roles":     []string{"Customer"},
+	}
+
+	body, err := c.post(ctx, "/api/v1/users", payload)
+	if err != nil {
+		return nil, fmt.Errorf("creating user %s: %w", email, err)
+	}
+
+	var user User
+	if err := json.Unmarshal(body, &user); err != nil {
+		return nil, fmt.Errorf("decoding created user: %w", err)
+	}
+
+	return &user, nil
+}
+
 // SearchUsersByEmail searches for a Zammad user by email address.
 // Returns nil if no user is found.
 func (c *Client) SearchUsersByEmail(ctx context.Context, email string) (*User, error) {

@@ -16,6 +16,8 @@ type ZammadClient interface {
 	CreateTicket(ctx context.Context, req zammad.TicketCreateRequest) (*zammad.Ticket, error)
 	UpdateTicket(ctx context.Context, id int, req zammad.TicketUpdateRequest) (*zammad.Ticket, error)
 	SearchTickets(ctx context.Context, query string, opts zammad.ListTicketsOptions) ([]zammad.Ticket, error)
+	SearchUsersByEmail(ctx context.Context, email string) (*zammad.User, error)
+	CreateUser(ctx context.Context, email, firstname, lastname string) (*zammad.User, error)
 }
 
 // TicketStore defines the database operations the ticket service needs.

@@ -107,11 +107,21 @@ func (s *Service) Create(ctx context.Context, req CreateRequest, callerEmail str
 		StateID:    req.StateID,
 		PriorityID: req.PriorityID,
 	}
-	// If no customer_id provided, use the caller's email to let Zammad resolve the customer.
+	// If no customer_id provided, look up or create the customer in Zammad by email.
 	if zReq.CustomerID == 0 && callerEmail != "" {
-		zReq.Customer = callerEmail
+		user, err := s.zammad.SearchUsersByEmail(ctx, callerEmail)
+		if err != nil {
+			return nil, fmt.Errorf("searching for customer %s: %w", callerEmail, err)
+		}
+		if user == nil {
+			user, err = s.zammad.CreateUser(ctx, callerEmail, "", "")
+			if err != nil {
+				return nil, fmt.Errorf("creating customer %s in zammad: %w", callerEmail, err)
+			}
+		}
+		zReq.CustomerID = user.ID
 	}
-	if zReq.CustomerID == 0 && zReq.Customer == "" {
+	if zReq.CustomerID == 0 {
 		return nil, fmt.Errorf("customer_id is required when caller email is not available")
 	}
 
