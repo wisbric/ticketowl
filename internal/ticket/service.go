@@ -111,6 +111,9 @@ func (s *Service) Create(ctx context.Context, req CreateRequest, callerEmail str
 	if zReq.CustomerID == 0 && callerEmail != "" {
 		zReq.Customer = callerEmail
 	}
+	if zReq.CustomerID == 0 && zReq.Customer == "" {
+		return nil, fmt.Errorf("customer_id is required when caller email is not available")
+	}
 
 	if req.Body != "" {
 		zReq.Article = &zammad.ArticleCreate{

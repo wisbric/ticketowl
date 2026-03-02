@@ -174,6 +174,10 @@ func (h *Handler) handleCreate(w http.ResponseWriter, r *http.Request) {
 
 	ticket, err := svc.Create(r.Context(), req, callerEmail)
 	if err != nil {
+		if req.CustomerID == 0 && callerEmail == "" {
+			httpserver.RespondError(w, http.StatusBadRequest, "bad_request", "customer_id is required")
+			return
+		}
 		h.logger.Error("creating ticket", "error", err)
 		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to create ticket")
 		return
