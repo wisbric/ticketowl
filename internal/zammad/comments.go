@@ -22,12 +22,12 @@ type Article struct {
 
 // ArticleCreate is the payload for creating an article.
 type ArticleCreate struct {
-	TicketID    int    `json:"ticket_id"`
-	TypeID      int    `json:"type_id"`
+	TicketID    int    `json:"ticket_id,omitempty"`
+	TypeID      int    `json:"type_id,omitempty"`
 	Body        string `json:"body"`
 	ContentType string `json:"content_type"`
 	Internal    bool   `json:"internal"`
-	SenderID    int    `json:"sender_id"`
+	SenderID    int    `json:"sender_id,omitempty"`
 }
 
 // ListArticles returns all articles for a ticket.

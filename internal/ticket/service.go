@@ -116,7 +116,11 @@ func (s *Service) Create(ctx context.Context, req CreateRequest, callerEmail str
 		if user == nil {
 			user, err = s.zammad.CreateUser(ctx, callerEmail, "", "")
 			if err != nil {
-				return nil, fmt.Errorf("creating customer %s in zammad: %w", callerEmail, err)
+				// User may already exist but search missed them — retry search.
+				user, searchErr := s.zammad.SearchUsersByEmail(ctx, callerEmail)
+				if searchErr != nil || user == nil {
+					return nil, fmt.Errorf("creating customer %s in zammad: %w", callerEmail, err)
+				}
 			}
 		}
 		zReq.CustomerID = user.ID

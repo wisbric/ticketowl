@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 )
 
 // User represents a Zammad user.
@@ -74,7 +75,8 @@ func (c *Client) CreateUser(ctx context.Context, email, firstname, lastname stri
 // SearchUsersByEmail searches for a Zammad user by email address.
 // Returns nil if no user is found.
 func (c *Client) SearchUsersByEmail(ctx context.Context, email string) (*User, error) {
-	path := "/api/v1/users/search?query=" + email + "&limit=1&expand=true"
+	// Use Zammad's exact-match search syntax for email field.
+	path := "/api/v1/users/search?query=" + url.QueryEscape("email:"+email) + "&limit=1&expand=true"
 
 	body, err := c.get(ctx, path)
 	if err != nil {
