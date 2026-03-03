@@ -10,6 +10,9 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// ErrIntegrationNotConfigured is returned when the required integration is not set up.
+var ErrIntegrationNotConfigured = errors.New("integration not configured")
+
 // Service encapsulates link business logic.
 type Service struct {
 	store    LinkStore
@@ -72,7 +75,7 @@ func (s *Service) GetLinks(ctx context.Context, zammadID int) (*TicketLinks, err
 // LinkIncident validates an incident against NightOwl and creates a link.
 func (s *Service) LinkIncident(ctx context.Context, zammadID int, incidentIDStr string, linkedBy uuid.UUID) (*IncidentLink, error) {
 	if s.nightowl == nil {
-		return nil, fmt.Errorf("nightowl integration not configured")
+		return nil, fmt.Errorf("nightowl %w", ErrIntegrationNotConfigured)
 	}
 
 	// Validate the incident exists in NightOwl.
@@ -117,7 +120,7 @@ func (s *Service) UnlinkIncident(ctx context.Context, zammadID int, incidentIDSt
 // LinkArticle validates an article against BookOwl and creates a link.
 func (s *Service) LinkArticle(ctx context.Context, zammadID int, articleIDStr string, linkedBy uuid.UUID) (*ArticleLink, error) {
 	if s.bookowl == nil {
-		return nil, fmt.Errorf("bookowl integration not configured")
+		return nil, fmt.Errorf("bookowl %w", ErrIntegrationNotConfigured)
 	}
 
 	// Validate the article exists in BookOwl.

@@ -257,6 +257,9 @@ func runAPI(ctx context.Context, cfg *config.Config, logger *slog.Logger, metric
 		SLA:      slaHandler.TicketSLARoutes(),
 	}))
 
+	// Search proxy (NightOwl incidents, BookOwl articles).
+	srv.APIRouter.Mount("/search", linkHandler.SearchRoutes())
+
 	// Customer portal.
 	customerHandler := customer.NewHandler(logger)
 	srv.APIRouter.Mount("/portal", customerHandler.Routes())

@@ -15,7 +15,7 @@ import (
 	"github.com/wisbric/core/pkg/httpserver"
 	"github.com/wisbric/core/pkg/tenant"
 
-	"github.com/wisbric/ticketowl/internal/bookowl"
+	owlbookowl "github.com/wisbric/ticketowl/internal/bookowl"
 	"github.com/wisbric/ticketowl/internal/clientresolver"
 	"github.com/wisbric/ticketowl/internal/nightowl"
 )
@@ -41,6 +41,15 @@ func (h *Handler) Routes() chi.Router {
 	r.Delete("/incident/{incident_id}", h.handleUnlinkIncident)
 	r.Post("/article", h.handleLinkArticle)
 	r.Delete("/article/{article_id}", h.handleUnlinkArticle)
+	return r
+}
+
+// SearchRoutes returns a chi.Router with search proxy routes.
+// Expects to be mounted at /api/v1/search.
+func (h *Handler) SearchRoutes() chi.Router {
+	r := chi.NewRouter()
+	r.Get("/incidents", h.handleSearchIncidents)
+	r.Get("/articles", h.handleSearchArticles)
 	return r
 }
 
@@ -120,6 +129,10 @@ func (h *Handler) handleLinkIncident(w http.ResponseWriter, r *http.Request) {
 
 	link, err := svc.LinkIncident(r.Context(), zammadID, req.IncidentID, linkedBy)
 	if err != nil {
+		if errors.Is(err, ErrIntegrationNotConfigured) {
+			httpserver.RespondError(w, http.StatusUnprocessableEntity, "integration_not_configured", "NightOwl integration is not configured for this tenant")
+			return
+		}
 		if nightowl.IsNotFound(err) {
 			httpserver.RespondError(w, http.StatusNotFound, "not_found", "incident not found in NightOwl")
 			return
@@ -193,7 +206,11 @@ func (h *Handler) handleLinkArticle(w http.ResponseWriter, r *http.Request) {
 
 	link, err := svc.LinkArticle(r.Context(), zammadID, req.ArticleID, linkedBy)
 	if err != nil {
-		if bookowl.IsNotFound(err) {
+		if errors.Is(err, ErrIntegrationNotConfigured) {
+			httpserver.RespondError(w, http.StatusUnprocessableEntity, "integration_not_configured", "BookOwl integration is not configured for this tenant")
+			return
+		}
+		if owlbookowl.IsNotFound(err) {
 			httpserver.RespondError(w, http.StatusNotFound, "not_found", "article not found in BookOwl")
 			return
 		}
@@ -236,6 +253,54 @@ func (h *Handler) handleUnlinkArticle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpserver.Respond(w, http.StatusNoContent, nil)
+}
+
+func (h *Handler) handleSearchIncidents(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	if q == "" {
+		httpserver.Respond(w, http.StatusOK, []any{})
+		return
+	}
+
+	conn := tenant.ConnFromContext(r.Context())
+	nc, err := clientresolver.NightOwlClient(r.Context(), conn, h.logger)
+	if err != nil {
+		httpserver.RespondError(w, http.StatusUnprocessableEntity, "integration_not_configured", "NightOwl integration is not configured")
+		return
+	}
+
+	incidents, err := nc.SearchIncidents(r.Context(), q, 20)
+	if err != nil {
+		h.logger.Error("searching nightowl incidents", "error", err, "query", q)
+		httpserver.RespondError(w, http.StatusBadGateway, "upstream_error", "failed to search NightOwl incidents")
+		return
+	}
+
+	httpserver.Respond(w, http.StatusOK, incidents)
+}
+
+func (h *Handler) handleSearchArticles(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	if q == "" {
+		httpserver.Respond(w, http.StatusOK, []any{})
+		return
+	}
+
+	conn := tenant.ConnFromContext(r.Context())
+	bc, err := clientresolver.BookOwlClient(r.Context(), conn, h.logger)
+	if err != nil {
+		httpserver.RespondError(w, http.StatusUnprocessableEntity, "integration_not_configured", "BookOwl integration is not configured")
+		return
+	}
+
+	articles, err := bc.SearchArticles(r.Context(), owlbookowl.SearchOptions{Query: q, Limit: 20})
+	if err != nil {
+		h.logger.Error("searching bookowl articles", "error", err, "query", q)
+		httpserver.RespondError(w, http.StatusBadGateway, "upstream_error", "failed to search BookOwl articles")
+		return
+	}
+
+	httpserver.Respond(w, http.StatusOK, articles)
 }
 
 func callerUUID(r *http.Request) uuid.UUID {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"time"
 )
 
@@ -52,6 +53,23 @@ func (c *Client) ListIncidents(ctx context.Context, status string) ([]Incident, 
 	var incidents []Incident
 	if err := json.Unmarshal(body, &incidents); err != nil {
 		return nil, fmt.Errorf("decoding incidents: %w", err)
+	}
+
+	return incidents, nil
+}
+
+// SearchIncidents searches NightOwl incidents by query string.
+func (c *Client) SearchIncidents(ctx context.Context, query string, limit int) ([]Incident, error) {
+	path := fmt.Sprintf("/api/v1/incidents/search?q=%s&limit=%d", url.QueryEscape(query), limit)
+
+	body, err := c.get(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("searching incidents: %w", err)
+	}
+
+	var incidents []Incident
+	if err := json.Unmarshal(body, &incidents); err != nil {
+		return nil, fmt.Errorf("decoding incident search results: %w", err)
 	}
 
 	return incidents, nil

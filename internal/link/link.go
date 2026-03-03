@@ -13,11 +13,13 @@ import (
 // NightOwlClient defines the NightOwl operations the link service needs.
 type NightOwlClient interface {
 	GetIncident(ctx context.Context, incidentID string) (*nightowl.Incident, error)
+	SearchIncidents(ctx context.Context, query string, limit int) ([]nightowl.Incident, error)
 }
 
 // BookOwlClient defines the BookOwl operations the link service needs.
 type BookOwlClient interface {
 	GetArticle(ctx context.Context, articleID string) (*bookowl.Article, error)
+	SearchArticles(ctx context.Context, opts bookowl.SearchOptions) ([]bookowl.ArticleSummary, error)
 }
 
 // IncidentLink represents a link between a TicketOwl ticket and a NightOwl incident.
