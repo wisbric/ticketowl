@@ -23,7 +23,7 @@ export function Dialog({ open, onClose, children, className }: DialogProps) {
       ref={ref}
       onClose={onClose}
       className={cn(
-        "backdrop:bg-black/50 bg-card text-card-foreground rounded-lg border shadow-lg p-0 max-w-lg w-full",
+        "backdrop:bg-black/50 bg-card text-card-foreground rounded-lg border border-border shadow-lg p-0 max-w-lg w-full m-auto",
         className
       )}
     >
