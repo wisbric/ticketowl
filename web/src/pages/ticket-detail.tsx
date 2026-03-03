@@ -120,7 +120,7 @@ export function TicketDetailPage() {
     mutationFn: () => api.delete(`/tickets/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tickets"] });
-      navigate({ to: "/tickets" });
+      navigate({ to: "/" });
     },
   });
 
