@@ -32,6 +32,10 @@ func (m *mockNightOwl) GetIncident(_ context.Context, incidentID string) (*night
 	return inc, nil
 }
 
+func (m *mockNightOwl) SearchIncidents(_ context.Context, _ string, _ int) ([]nightowl.Incident, error) {
+	return nil, nil
+}
+
 // --- Mock BookOwl Client ---
 
 type mockBookOwl struct {
@@ -48,6 +52,10 @@ func (m *mockBookOwl) GetArticle(_ context.Context, articleID string) (*bookowl.
 		return nil, &bookowl.APIError{StatusCode: 404, Message: "article not found"}
 	}
 	return art, nil
+}
+
+func (m *mockBookOwl) SearchArticles(_ context.Context, _ bookowl.SearchOptions) ([]bookowl.ArticleSummary, error) {
+	return nil, nil
 }
 
 // --- Mock Link Store ---
