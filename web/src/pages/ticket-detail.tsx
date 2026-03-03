@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useParams } from "@tanstack/react-router";
+import { useParams, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useTitle } from "@/hooks/use-title";
@@ -7,6 +7,7 @@ import { formatRelativeTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Dialog, DialogHeader, DialogTitle, DialogContent } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -16,7 +17,7 @@ import { SLABadge } from "@/components/tickets/sla-badge";
 import { LinkIncidentModal } from "@/components/tickets/link-incident-modal";
 import { LinkArticleModal } from "@/components/tickets/link-article-modal";
 import { SuggestionsPanel } from "@/components/tickets/suggestions-panel";
-import { Link2, FileText, Plus, ExternalLink } from "lucide-react";
+import { Link2, FileText, Plus, ExternalLink, Trash2 } from "lucide-react";
 import type {
   EnrichedTicket,
   ThreadEntry,
@@ -31,10 +32,12 @@ export function TicketDetailPage() {
   const id = Number(ticketId);
   const queryClient = useQueryClient();
 
+  const navigate = useNavigate();
   const [replyBody, setReplyBody] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [showLinkIncidentModal, setShowLinkIncidentModal] = useState(false);
   const [showLinkArticleModal, setShowLinkArticleModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: ticket, isLoading: ticketLoading } = useQuery({
     queryKey: ["ticket", id],
@@ -53,7 +56,14 @@ export function TicketDetailPage() {
 
   const { data: sla } = useQuery({
     queryKey: ["ticket-sla", id],
-    queryFn: () => api.get<SLAState>(`/tickets/${id}/sla`),
+    queryFn: async () => {
+      try {
+        return await api.get<SLAState>(`/tickets/${id}/sla`);
+      } catch {
+        return null;
+      }
+    },
+    retry: false,
   });
 
   const { data: metadata } = useQuery({
@@ -106,6 +116,14 @@ export function TicketDetailPage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/tickets/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      navigate({ to: "/tickets" });
+    },
+  });
+
   function handleReply(e: FormEvent) {
     e.preventDefault();
     if (!replyBody.trim()) return;
@@ -128,9 +146,20 @@ export function TicketDetailPage() {
     <div>
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">#{ticket.number}</h1>
-          <h2 className="text-xl">{ticket.title}</h2>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold">#{ticket.number}</h1>
+            <h2 className="text-xl">{ticket.title}</h2>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+            onClick={() => setShowDeleteConfirm(true)}
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            Delete
+          </Button>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <Select
@@ -371,6 +400,32 @@ export function TicketDetailPage() {
         open={showLinkArticleModal}
         onClose={() => setShowLinkArticleModal(false)}
       />
+
+      <Dialog open={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)}>
+        <DialogHeader>
+          <DialogTitle>Delete Ticket</DialogTitle>
+        </DialogHeader>
+        <DialogContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to delete ticket <strong>#{ticket.number}</strong>? This action cannot be undone.
+          </p>
+          {deleteMutation.isError && (
+            <p className="text-sm text-destructive">
+              {deleteMutation.error instanceof Error ? deleteMutation.error.message : "Delete failed"}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

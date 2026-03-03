@@ -46,12 +46,23 @@ func (s *Service) Get(ctx context.Context, zammadID int) (*EnrichedTicket, error
 
 // List fetches tickets from Zammad and enriches with TicketOwl metadata.
 func (s *Service) List(ctx context.Context, opts ListOptions) ([]EnrichedTicket, error) {
+	orderBy := opts.OrderBy
+	if orderBy == "" {
+		orderBy = "created_at"
+	}
+	sortBy := opts.SortBy
+	if sortBy == "" {
+		sortBy = "desc"
+	}
+
 	zammadOpts := zammad.ListTicketsOptions{
 		Page:     opts.Page,
 		PerPage:  opts.PerPage,
 		StateIDs: opts.StateIDs,
 		GroupIDs: opts.GroupIDs,
 		OrgID:    opts.OrgID,
+		OrderBy:  orderBy,
+		SortBy:   sortBy,
 	}
 
 	var tickets []zammad.Ticket
@@ -151,6 +162,14 @@ func (s *Service) Create(ctx context.Context, req CreateRequest, callerEmail str
 
 	et := enrichFromZammad(t, meta)
 	return &et, nil
+}
+
+// Delete deletes a ticket in Zammad.
+func (s *Service) Delete(ctx context.Context, zammadID int) error {
+	if err := s.zammad.DeleteTicket(ctx, zammadID); err != nil {
+		return fmt.Errorf("deleting ticket in zammad: %w", err)
+	}
+	return nil
 }
 
 // Update updates a ticket in Zammad.

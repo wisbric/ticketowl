@@ -15,6 +15,7 @@ type ZammadClient interface {
 	ListTickets(ctx context.Context, opts zammad.ListTicketsOptions) ([]zammad.Ticket, error)
 	CreateTicket(ctx context.Context, req zammad.TicketCreateRequest) (*zammad.Ticket, error)
 	UpdateTicket(ctx context.Context, id int, req zammad.TicketUpdateRequest) (*zammad.Ticket, error)
+	DeleteTicket(ctx context.Context, id int) error
 	SearchTickets(ctx context.Context, query string, opts zammad.ListTicketsOptions) ([]zammad.Ticket, error)
 	SearchUsersByEmail(ctx context.Context, email string) (*zammad.User, error)
 	CreateUser(ctx context.Context, email, firstname, lastname string) (*zammad.User, error)
@@ -71,6 +72,8 @@ type ListOptions struct {
 	GroupIDs []int
 	OrgID    *int
 	Query    string
+	OrderBy  string
+	SortBy   string
 }
 
 // CreateRequest is the request payload for creating a ticket.

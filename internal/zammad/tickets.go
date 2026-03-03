@@ -38,6 +38,8 @@ type ListTicketsOptions struct {
 	StateIDs []int
 	GroupIDs []int
 	OrgID    *int
+	OrderBy  string // Zammad field to sort by (e.g. "created_at").
+	SortBy   string // "asc" or "desc".
 }
 
 // TicketCreateRequest is the payload for creating a ticket.
@@ -125,6 +127,15 @@ func (c *Client) UpdateTicket(ctx context.Context, id int, req TicketUpdateReque
 	return &ticket, nil
 }
 
+// DeleteTicket deletes a ticket by ID.
+func (c *Client) DeleteTicket(ctx context.Context, id int) error {
+	path := fmt.Sprintf("/api/v1/tickets/%d", id)
+	if err := c.delete(ctx, path); err != nil {
+		return fmt.Errorf("deleting ticket %d: %w", id, err)
+	}
+	return nil
+}
+
 // SearchTickets searches for tickets matching the given query.
 func (c *Client) SearchTickets(ctx context.Context, query string, opts ListTicketsOptions) ([]Ticket, error) {
 	params := buildListQuery(opts)
@@ -172,6 +183,12 @@ func buildListQuery(opts ListTicketsOptions) string {
 	}
 	if opts.OrgID != nil {
 		params.Set("organization_id", strconv.Itoa(*opts.OrgID))
+	}
+	if opts.OrderBy != "" {
+		params.Set("order_by", opts.OrderBy)
+	}
+	if opts.SortBy != "" {
+		params.Set("sort_by", opts.SortBy)
 	}
 
 	return params.Encode()

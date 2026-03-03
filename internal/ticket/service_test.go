@@ -84,6 +84,14 @@ func (m *mockZammad) UpdateTicket(_ context.Context, id int, req zammad.TicketUp
 	return t, nil
 }
 
+func (m *mockZammad) DeleteTicket(_ context.Context, id int) error {
+	if _, ok := m.tickets[id]; !ok {
+		return &zammad.ZammadError{StatusCode: 404, Message: "not found"}
+	}
+	delete(m.tickets, id)
+	return nil
+}
+
 func (m *mockZammad) SearchTickets(_ context.Context, _ string, _ zammad.ListTicketsOptions) ([]zammad.Ticket, error) {
 	return m.ListTickets(context.Background(), zammad.ListTicketsOptions{})
 }

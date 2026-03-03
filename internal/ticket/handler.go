@@ -49,6 +49,7 @@ func (h *Handler) Routes(children *ChildRoutes) chi.Router {
 	r.Route("/{id}", func(r chi.Router) {
 		r.Get("/", h.handleGet)
 		r.Patch("/", h.handleUpdate)
+		r.Delete("/", h.handleDelete)
 		r.Get("/suggestions", h.handleGetSuggestions)
 		r.Post("/postmortem", h.handleCreatePostMortem)
 
@@ -124,6 +125,12 @@ func (h *Handler) handleList(w http.ResponseWriter, r *http.Request) {
 		if p, err := strconv.Atoi(v); err == nil {
 			opts.PerPage = p
 		}
+	}
+	if v := q.Get("order_by"); v != "" {
+		opts.OrderBy = v
+	}
+	if v := q.Get("sort_by"); v != "" {
+		opts.SortBy = v
 	}
 
 	svc, err := h.service(r)
@@ -219,6 +226,34 @@ func (h *Handler) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpserver.Respond(w, http.StatusOK, ticket)
+}
+
+func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) {
+	telemetry.TicketRequestsTotal.WithLabelValues("delete").Inc()
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		httpserver.RespondError(w, http.StatusBadRequest, "bad_request", "invalid ticket ID")
+		return
+	}
+
+	svc, err := h.service(r)
+	if err != nil {
+		h.logger.Error("resolving zammad client", "error", err)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "zammad not configured")
+		return
+	}
+
+	if err := svc.Delete(r.Context(), id); err != nil {
+		if zammad.IsNotFound(err) {
+			httpserver.RespondError(w, http.StatusNotFound, "not_found", "ticket not found")
+			return
+		}
+		h.logger.Error("deleting ticket", "error", err, "id", id)
+		httpserver.RespondError(w, http.StatusInternalServerError, "internal_error", "failed to delete ticket")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) handleGetSuggestions(w http.ResponseWriter, r *http.Request) {

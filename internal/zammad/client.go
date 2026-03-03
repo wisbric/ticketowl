@@ -182,6 +182,12 @@ func (c *Client) put(ctx context.Context, path string, body any) ([]byte, error)
 	return respBody, err
 }
 
+// delete is a convenience wrapper for DELETE requests.
+func (c *Client) delete(ctx context.Context, path string) error {
+	_, _, err := c.do(ctx, http.MethodDelete, path, nil)
+	return err
+}
+
 func sleepWithJitter(attempt int) {
 	delay := baseDelay
 	for range attempt {
